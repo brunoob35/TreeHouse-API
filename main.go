@@ -10,8 +10,8 @@ import (
 
 func main() {
 	config.LoadEnv()
-	fmt.Println("API running at door ", config.Port)
 	r := router.Generate()
+	fmt.Println("API running at door ", config.Port)
 
 	log.Fatal(http.ListenAndServe(fmt.Sprintf(":%d", config.Port), r))
 }
