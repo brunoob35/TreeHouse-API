@@ -16,8 +16,9 @@ var (
 //LoadEnv loads the env variable
 func LoadEnv() {
 	var err error
-	if err = godotenv.Load(); err != nil {
-		log.Fatal(err)
+	if err = godotenv.Load("src/config/enviroment/enviroment.env"); err != nil {
+
+		log.Fatal("entrou aqui, ", err)
 	}
 
 	Port, err = strconv.Atoi(os.Getenv("API_PORT"))
