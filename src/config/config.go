@@ -20,6 +20,7 @@ func LoadEnv() {
 
 		log.Fatal("entrou aqui, ", err)
 	}
+	log.Println("Carregou env")
 
 	Port, err = strconv.Atoi(os.Getenv("API_PORT"))
 	if err != nil {

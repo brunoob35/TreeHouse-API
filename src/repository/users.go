@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"github.com/brunoob35/TreeHouse-API/src/model"
+	"log"
 )
 
 // Users receives the DB connection and handles it
@@ -18,6 +19,7 @@ func UsersNewRepo(db *sql.DB) *Users {
 
 // Create inserts and user into the DB and returns the new user ID
 func (u Users) Create(user model.User) (uint64, error) {
+	log.Println("Chegou no repo")
 	query := `INSERT INTO usuarios
 				(nome_usuario,
 				 email_ususario,
@@ -35,7 +37,7 @@ func (u Users) Create(user model.User) (uint64, error) {
 	}
 	defer statement.Close()
 
-	result, err := statement.Exec(user.Nome, user.Email, user.Senha)
+	result, err := statement.Exec(user.Nome, user.Email, user.Senha, user.IDAcesso, user.CPF, user.RG, user.Celular, user.DataNasc)
 	if err != nil {
 		return 0, err
 	}

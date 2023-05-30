@@ -24,14 +24,14 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	var newUser model.User
 	if err = json.Unmarshal(bodyRequest, &newUser); err != nil {
 		//temporary error handling
-		log.Fatal(err)
+		log.Fatal("Erro no unmarshal ", err)
 	}
 
 	//Open DB connection
 	db, err := persistency.Connect()
 	if err != nil {
 		//temporary error handling
-		log.Fatal(err)
+		log.Fatal("Erro para conectar no banco ", err)
 	}
 
 	//now we create a new instance of the repository
