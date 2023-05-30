@@ -31,7 +31,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	db, err := persistency.Connect()
 	if err != nil {
 		//temporary error handling
-		log.Fatal("Erro para conectar no banco ", err)
+		log.Fatal("Erro para conectar no banco: ", err)
 	}
 
 	//now we create a new instance of the repository

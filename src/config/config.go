@@ -10,10 +10,10 @@ import (
 
 var (
 	ConncetionString = ""
-	Port = 0
+	Port             = 0
 )
 
-//LoadEnv loads the env variable
+// LoadEnv loads the env variable
 func LoadEnv() {
 	var err error
 	if err = godotenv.Load("src/config/enviroment/enviroment.env"); err != nil {
@@ -27,12 +27,10 @@ func LoadEnv() {
 		Port = 9000
 	}
 
-
-	ConncetionString = fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=local",
+	ConncetionString = fmt.Sprintf("%s:%s@/%s?charset=utf8&parseTime=True&loc=Local",
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 	)
-
 
 }

@@ -12,6 +12,6 @@ type User struct {
 	CPF         string    `json:"cpf,omitempty"`
 	RG          string    `json:"rg,omitempty"`
 	Celular     string    `json:"celular,omitempty"`
-	DataNasc    time.Time `json:"data_nasc,omitempty"`
+	DataNasc    time.Time `json:"data_nascimento,omitempty"`
 	DataCriacao time.Time `json:"data_criacao,omitempty"`
 }

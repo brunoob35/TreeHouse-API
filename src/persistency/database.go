@@ -16,6 +16,7 @@ func Connect() (*sql.DB, error) {
 	}
 	if err = db.Ping(); err != nil {
 		db.Close()
+		log.Println("DEBUG: Erro no db.Ping: ")
 		return nil, err
 	}
 
