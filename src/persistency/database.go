@@ -3,13 +3,14 @@ package persistency
 import (
 	"database/sql"
 	"github.com/brunoob35/TreeHouse-API/src/config"
-	_ "github.com/go-sql-driver/mysql" // Drivers MySQL
 	"log"
 )
 
 // Connect Opens persistency connection and returns it
 func Connect() (*sql.DB, error) {
-	db, err := sql.Open("mysql", config.ConncetionString)
+
+
+	db, err := sql.Open("mysql", config.Cfg.FormatDSN())
 	if err != nil {
 		log.Println("DEBUG: Erro no sql Open")
 		return nil, err

@@ -1,5 +1,10 @@
 USE (database);
 
+DROP database IF EXISTS treehousedb;
+create database treehousedb;
+USE treehousedb;
+
+-- Tabela Ususarios
 CREATE TABLE usuarios (
                           id_usuario INT NOT NULL AUTO_INCREMENT,
                           nome_usuario VARCHAR(50) NOT NULL,
@@ -14,18 +19,6 @@ CREATE TABLE usuarios (
                           PRIMARY KEY (id_usuario)
 );
 
-
-
-CREATE TABLE turma (
-                       id_turma INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-                       nome_turma VARCHAR(50),
-                       data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                       id_professora INT UNSIGNED
-
-);
-
-use treehousedb;
-
 -- Tabela Aluno
 CREATE TABLE alunos (
                         id_aluno INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
@@ -38,7 +31,7 @@ CREATE TABLE alunos (
                         id_ano_letivo INT,
                         alfabetizacao INT,
                         id_turma INT,
-                        data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
 );
 
@@ -50,7 +43,7 @@ CREATE TABLE profesoras (
                             aniversario_professora DATE,
                             id_turma INT,
                             id_salario INT,
-                            data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                            data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
 );
 
@@ -63,9 +56,9 @@ CREATE TABLE livros (
 -- Tabela Turma
 CREATE TABLE turmas (
                         id_turma INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                        nome_turma VARCHAR(255) NOT NULL,
-                        id_professor INT,
-                        data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                        nome_turma VARCHAR(50),
+                        id_professor INT UNSIGNED,
+                        data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Tabela Aulas
@@ -74,7 +67,7 @@ CREATE TABLE aulas (
                        datahora_aula DATE,
                        id_turma INT,
                        id_status_aula INT,
-                       data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                       data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
 );
 
@@ -106,7 +99,7 @@ CREATE TABLE anos_letivos (
 CREATE TABLE salarios (
                           id_salario INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                           valor VARCHAR(255),
-                          data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                          data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 -- Tabela Pais e Alunos

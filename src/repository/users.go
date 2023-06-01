@@ -20,16 +20,15 @@ func UsersNewRepo(db *sql.DB) *Users {
 // Create inserts and user into the DB and returns the new user ID
 func (u Users) Create(user model.User) (uint64, error) {
 	log.Println("Chegou no repo")
-	query := `INSERT INTO usuarios
+	query := `INSERT INTO treehousedb.usuarios
 				(nome_usuario,
-				 email_ususario,
+				 email_usuario,
 				 senha,
 				 id_acesso,
 				 cpf,
 				 rg,
-				 celular,
-				 data_nascimento)
-				VALUES (?,?,?,?,?,?,?,?)`
+				 celular)
+				VALUES (?,?,?,?,?,?,?)`
 
 	statement, err := u.db.Prepare(query)
 	if err != nil {
@@ -37,7 +36,7 @@ func (u Users) Create(user model.User) (uint64, error) {
 	}
 	defer statement.Close()
 
-	result, err := statement.Exec(user.Nome, user.Email, user.Senha, user.IDAcesso, user.CPF, user.RG, user.Celular, user.DataNasc)
+	result, err := statement.Exec(user.Nome, user.Email, user.Senha, user.IDAcesso, user.CPF, user.RG, user.Celular)
 	if err != nil {
 		return 0, err
 	}
