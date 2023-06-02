@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="DdlMappings">
+    <mapping uuid="48bf6910-9611-4f68-abd7-4eac430092a0" name="treehousedb-dev Mapping">
+      <data-sources db="28dbed69-c9e5-4aae-9cc7-9021e6fe63e2" />
+      <scope>
+        <node kind="database" negative="1" />
+      </scope>
+    </mapping>
+  </component>
+</project>
