@@ -3,6 +3,8 @@ package model
 import (
 	"errors"
 	"github.com/badoux/checkmail"
+	"github.com/brunoob35/TreeHouse-API/src/utils"
+	"log"
 	"strings"
 	"time"
 )
@@ -48,7 +50,12 @@ func (user *User) validate(step string) error {
 	if err := checkmail.ValidateFormat(user.Email); err != nil {
 		return errors.New("O e-mail inserido é inválido")
 	}
+
 	//TODO: find a CPF/RG validator service or algorithm
+	if err := utils.CPFValidator(user.CPF); err != nil {
+		log.Println("passou aqui??")
+		return err
+	}
 
 	if step == "cadastro" && user.Senha == "" {
 		return errors.New("A senha é obrigatória e não pode estar em branco")
