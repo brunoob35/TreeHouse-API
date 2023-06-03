@@ -55,7 +55,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // FetchUsers fetch all users from the persistency
-/* I've implemente this method for the CRUD purposes, but it doesn't seem too relevant right now
+/* I've implemented  this method for the CRUD purposes, but it doesn't seem too relevant right now
 I might consider different uses for this function. Respository function is commented. Adapt query if planning on using*/
 func FetchUsers(w http.ResponseWriter, r *http.Request) {
 	nomeOuNick := strings.ToLower(r.URL.Query().Get("usuario"))
@@ -80,23 +80,23 @@ func FetchUsers(w http.ResponseWriter, r *http.Request) {
 func FetchUser(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
-	userID, erro := strconv.ParseUint(params["usuarioId"], 10, 64)
-	if erro != nil {
-		responses.Err(w, http.StatusBadRequest, erro)
+	userID, err := strconv.ParseUint(params["userID"], 10, 64)
+	if err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
 		return
 	}
 
-	db, erro := persistency.Connect()
-	if erro != nil {
-		responses.Err(w, http.StatusInternalServerError, erro)
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 	defer db.Close()
 
 	repo := repository.UsersNewRepo(db)
-	user, erro := repo.FetchByID(userID)
-	if erro != nil {
-		responses.Err(w, http.StatusInternalServerError, erro)
+	user, err := repo.FetchByID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -105,7 +105,16 @@ func FetchUser(w http.ResponseWriter, r *http.Request) {
 
 // UpdateUser updates as user from the persistency by userID
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Updates user"))
+	params := mux.Vars(r)
+
+	userID, err := strconv.ParseUint(params["userID"], 10, 64)
+	if err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	requestBody, err := io.ReadAll(r.Body)
+
 }
 
 // DeleteUser deletes an usser from the persistency by userID

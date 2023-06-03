@@ -35,7 +35,7 @@ func (user *User) Prepare(step string) error {
 	return nil
 }
 
-// validate Prevents the sistem to save any blank space or invalid info
+// validate Prevents the sistem to save any blank space or invalid info.
 func (user *User) validate(step string) error {
 	if user.Nome == "" {
 		return errors.New("O nome é obrigatório e não pode estar em branco")
@@ -57,7 +57,7 @@ func (user *User) validate(step string) error {
 	return nil
 }
 
-// format Formats and trims blank spaces. Also applies hashing to the password
+// format Formats and trims blank spaces. Also applies hashing to the password.
 func (user *User) format(step string) error {
 	user.Nome = strings.TrimSpace(user.Nome)
 	user.Email = strings.TrimSpace(user.Email)
