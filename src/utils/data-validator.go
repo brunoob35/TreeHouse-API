@@ -8,44 +8,23 @@ import (
 	"strings"
 )
 
-//func CPFValidator(cpf string) error {
-//	if val := CheckAllEqual(cpf); val == true {
-//		log.Println("passou no if 1")
-//
-//		if CalcularDv1(cpf) {
-//			//if CalcularDv2(cpf) {
-//			return nil
-//		} else {
-//			return errors.New("DV1 invalido, CPF Invalido")
-//		}
-//	} else {
-//		return errors.New("Numeros Iguais, CPF Invalido")
-//	}
-//}
-
 func CPFValidator(cpf string) error {
 	if val := CheckAllEqual(cpf); val == true {
-		log.Println("passou no if 1")
 		if val = CalcularDv1(cpf); val == true {
-			log.Println("entrou no if 2")
 			if val = CalcularDv2(cpf); val == true {
 
-				log.Println("entrou no if 3")
 				return nil
 			} else {
-				log.Println("nao passou no calculardv2")
 				return errors.New("DV2 invalido, CPF Invalido")
 			}
 			return nil
 		} else {
-			log.Println("nao passou no calculardv1")
 			return errors.New("DV1 invalido, CPF Invalido")
 
 		}
 		return nil
 
 	} else {
-		log.Println("nao passou no check all equal")
 		return errors.New("Numeros Iguais, CPF Invalido")
 	}
 }
@@ -69,7 +48,6 @@ func CalcularDv1(cpf string) bool {
 
 	strNumVer := strconv.FormatFloat(resultadoArredondadoCima, 'f', 2, 64)
 	digitoVerificador := (strings.Split(strNumVer, ""))[3]
-	log.Println("debug dig verificador", digitoVerificador)
 	if digitoVerificador == cpfSlice[9] {
 		return true
 	}
@@ -95,7 +73,6 @@ func CalcularDv2(cpf string) bool {
 
 	strNumVer := strconv.FormatFloat(resultadoArredondadoCima, 'f', 2, 64)
 	digitoVerificador := (strings.Split(strNumVer, ""))[3]
-	log.Println("debug dig verificador", digitoVerificador)
 	if digitoVerificador == cpfSlice[10] {
 		return true
 	}
