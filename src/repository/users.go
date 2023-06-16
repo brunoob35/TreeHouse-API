@@ -3,7 +3,6 @@ package repository
 import (
 	"database/sql"
 	"github.com/brunoob35/TreeHouse-API/src/model"
-	"log"
 )
 
 // Users receives the DB connection and handles it
@@ -19,8 +18,7 @@ func UsersNewRepo(db *sql.DB) *Users {
 
 // Create inserts and user into the DB and returns the new user ID
 func (u Users) Create(user model.User) (uint64, error) {
-	log.Println("Chegou no repo")
-	query := `INSERT INTO treehousedb.usuarios
+	query := `INSERT INTO usuarios
 				(nome_usuario,
 				 email_usuario,
 				 senha,
@@ -110,4 +108,28 @@ func (u Users) FetchByID(ID uint64) (model.User, error) {
 	//
 	//return usuario, nil
 	return model.User{}, nil
+}
+
+// FetchByEmail Fetches a user by email
+func (u Users) FetchByEmail(email string) (model.User, error) {
+	query := `SELECT 
+    			id_usuario, 
+    			senha
+			FROM usuarios WHERE email_usuario = ?`
+
+	line, err := u.db.Query(query, email)
+	if err != nil {
+		return model.User{}, err
+	}
+	defer line.Close()
+
+	var user model.User
+
+	if line.Next() {
+		if err = line.Scan(&user.ID, &user.Senha); err != nil {
+			return model.User{}, err
+		}
+	}
+
+	return user, nil
 }

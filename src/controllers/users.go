@@ -30,7 +30,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//todo: implement step functionality
-	if err = newUser.Prepare("temp step"); err != nil {
+	if err = newUser.Prepare("register"); err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
 	}
@@ -55,7 +55,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // FetchUsers fetch all users from the persistency
-/* I've implemente this method for the CRUD purposes, but it doesn't seem too relevant right now
+/* I've implemented this method for the CRUD purposes, but it doesn't seem too relevant right now
 I might consider different uses for this function. Respository function is commented. Adapt query if planning on using*/
 func FetchUsers(w http.ResponseWriter, r *http.Request) {
 	nomeOuNick := strings.ToLower(r.URL.Query().Get("usuario"))

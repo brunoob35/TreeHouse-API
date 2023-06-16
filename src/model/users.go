@@ -3,6 +3,7 @@ package model
 import (
 	"errors"
 	"github.com/badoux/checkmail"
+	"github.com/brunoob35/TreeHouse-API/src/security"
 	"github.com/brunoob35/TreeHouse-API/src/utils"
 	"log"
 	"strings"
@@ -23,7 +24,7 @@ type User struct {
 	DataCriacao time.Time `json:"data_criacao,omitempty"`
 }
 
-// Prepare Treats user info and also validate it
+// Prepare Treats user info and validates it
 func (user *User) Prepare(step string) error {
 	//optimize: test if validate > format is a good sequence since we need to also sanitize RG and CPF.
 	if err := user.validate(step); err != nil {
@@ -37,8 +38,10 @@ func (user *User) Prepare(step string) error {
 	return nil
 }
 
-// validate Prevents the sistem to save any blank space or invalid info
+// validate Prevents the sistem to save any blank space or invalid info.
 func (user *User) validate(step string) error {
+	log.Println("DEBUG: Entrou no validate")
+
 	if user.Nome == "" {
 		return errors.New("O nome é obrigatório e não pode estar em branco")
 	}
@@ -51,9 +54,8 @@ func (user *User) validate(step string) error {
 		return errors.New("O e-mail inserido é inválido")
 	}
 
-	//TODO: find a CPF/RG validator service or algorithm
+	//TODO: find a RG validator service or algorithm
 	if err := utils.CPFValidator(user.CPF); err != nil {
-		log.Println("passou aqui??")
 		return err
 	}
 
@@ -64,19 +66,19 @@ func (user *User) validate(step string) error {
 	return nil
 }
 
-// format Formats and trims blank spaces. Also applies hashing to the password
+// format Formats and trims blank spaces. Also applies hashing to the password.
 func (user *User) format(step string) error {
 	user.Nome = strings.TrimSpace(user.Nome)
 	user.Email = strings.TrimSpace(user.Email)
 
-	//if step == "cadastro" {
-	//	hashedPAssword, erro := seguranca.Hash(user.Senha)
-	//	if erro != nil {
-	//		return erro
-	//	}
-	//
-	//	user.Senha = string(hashedPAssword)
-	//}
+	if step == "register" {
+		hashedPassword, err := security.Hash(user.Senha)
+		if err != nil {
+			return err
+		}
+
+		user.Senha = string(hashedPassword)
+	}
 
 	return nil
 }
