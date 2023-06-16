@@ -2,7 +2,6 @@ package utils
 
 import (
 	"errors"
-	"log"
 	"math"
 	"strconv"
 	"strings"
