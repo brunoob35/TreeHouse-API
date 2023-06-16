@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/model"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
@@ -44,14 +45,14 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//token, err := autenticacao.GenerateToken(userFound.ID)
-	//if err != nil {
-	//	responses.Err(w, http.StatusInternalServerError, err)
-	//	return
-	//}
-	//
-	//userID := strconv.FormatUint(userFound.ID, 10)
+	token, err := authentication.GenerateToken(userFound.ID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
 
+	//userID := strconv.FormatUint(userFound.ID, 10)
+	//
 	//responses.JSON(w, http.StatusOK, models.DadosAutenticacao{ID: usuarioID, Token: token})
-	w.Write([]byte("Logou!"))
+	w.Write([]byte(token))
 }
