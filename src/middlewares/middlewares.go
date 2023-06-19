@@ -1,7 +1,8 @@
 package middlewares
 
 import (
-	"fmt"
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
+	"github.com/brunoob35/TreeHouse-API/src/responses"
 	"log"
 	"net/http"
 )
@@ -18,7 +19,10 @@ func Logger(next http.HandlerFunc) http.HandlerFunc {
 // Authentication verifies if the user is authenticated.
 func Authentication(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Validating...")
+		if err := authentication.ValidateToken(r); err != nil {
+			responses.Err(w, http.StatusUnauthorized, err)
+			return
+		}
 		next(w, r)
 	}
 

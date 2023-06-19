@@ -194,7 +194,7 @@ func (rows *binaryRows) Next(dest []driver.Value) error {
 			return err
 		}
 
-		// Fetch next row from stream
+		// FetchAllUsers next row from stream
 		return rows.readRow(dest)
 	}
 	return io.EOF
@@ -216,7 +216,7 @@ func (rows *textRows) Next(dest []driver.Value) error {
 			return err
 		}
 
-		// Fetch next row from stream
+		// FetchAllUsers next row from stream
 		return rows.readRow(dest)
 	}
 	return io.EOF

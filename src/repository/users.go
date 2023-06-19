@@ -2,7 +2,7 @@ package repository
 
 import (
 	"database/sql"
-	"github.com/brunoob35/TreeHouse-API/src/model"
+	"github.com/brunoob35/TreeHouse-API/src/models"
 )
 
 // Users receives the DB connection and handles it
@@ -17,7 +17,7 @@ func UsersNewRepo(db *sql.DB) *Users {
 }
 
 // Create inserts and user into the DB and returns the new user ID
-func (u Users) Create(user model.User) (uint64, error) {
+func (u Users) Create(user models.User) (uint64, error) {
 	query := `INSERT INTO usuarios
 				(nome_usuario,
 				 email_usuario,
@@ -46,43 +46,39 @@ func (u Users) Create(user model.User) (uint64, error) {
 	return uint64(lastInsertedID), nil
 }
 
-func (u Users) Fetch(nick string) ([]model.User, error) {
-	//nomeOuNick = fmt.Sprintf("%%%s%%", nomeOuNick) // %nomeOuNick%
-	//
-	//linhas, erro := repositorio.db.Query(
-	//	"select id, nome, nick, email, criadoEm from usuarios where nome LIKE ? or nick LIKE ?",
-	//	nomeOuNick, nomeOuNick,
-	//)
-	//
-	//if erro != nil {
-	//	return nil, erro
-	//}
-	//defer linhas.Close()
-	//
-	//var usuarios []modelos.Usuario
-	//
-	//for linhas.Next() {
-	//	var usuario modelos.Usuario
-	//
-	//	if erro = linhas.Scan(
-	//		&usuario.ID,
-	//		&usuario.Nome,
-	//		&usuario.Nick,
-	//		&usuario.Email,
-	//		&usuario.CriadoEm,
-	//	); erro != nil {
-	//		return nil, erro
-	//	}
-	//
-	//	usuarios = append(usuarios, usuario)
-	//}
-	//
-	//return usuarios, nil
+func (u Users) FetchAllUsers(nick string) ([]models.User, error) {
+	query := `SELECT * FROM ususarios`
 
-	return nil, nil
+	lines, err := u.db.Query(query)
+
+	if err != nil {
+		return nil, err
+	}
+
+	defer lines.Close()
+
+	var users []models.User
+
+	for lines.Next() {
+		var user models.User
+
+		if err = lines.Scan(
+			&user.ID,
+			&user.Email,
+			&user.Nome,
+			&user.IDAcesso,
+		); err != nil {
+			return nil, err
+		}
+
+		users = append(users, user)
+
+	}
+
+	return users, nil
 }
 
-func (u Users) FetchByID(ID uint64) (model.User, error) {
+func (u Users) FetchByID(ID uint64) (models.User, error) {
 	//linhas, erro := repositorio.db.Query(
 	//	"select id, nome, nick, email, criadoEm from usuarios where id = ?",
 	//	ID,
@@ -107,11 +103,11 @@ func (u Users) FetchByID(ID uint64) (model.User, error) {
 	//}
 	//
 	//return usuario, nil
-	return model.User{}, nil
+	return models.User{}, nil
 }
 
 // FetchByEmail Fetches a user by email
-func (u Users) FetchByEmail(email string) (model.User, error) {
+func (u Users) FetchByEmail(email string) (models.User, error) {
 	query := `SELECT 
     			id_usuario, 
     			senha
@@ -119,15 +115,15 @@ func (u Users) FetchByEmail(email string) (model.User, error) {
 
 	line, err := u.db.Query(query, email)
 	if err != nil {
-		return model.User{}, err
+		return models.User{}, err
 	}
 	defer line.Close()
 
-	var user model.User
+	var user models.User
 
 	if line.Next() {
 		if err = line.Scan(&user.ID, &user.Senha); err != nil {
-			return model.User{}, err
+			return models.User{}, err
 		}
 	}
 

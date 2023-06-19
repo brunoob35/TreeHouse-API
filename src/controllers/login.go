@@ -3,7 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"github.com/brunoob35/TreeHouse-API/src/authentication"
-	"github.com/brunoob35/TreeHouse-API/src/model"
+	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
 	"github.com/brunoob35/TreeHouse-API/src/responses"
@@ -20,7 +20,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var user model.User
+	var user models.User
 	if err = json.Unmarshal(bodyRequest, &user); err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
