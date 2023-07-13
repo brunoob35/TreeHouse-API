@@ -40,7 +40,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = security.ValidatePassword(userFound.Senha, user.Senha); err != nil {
+	if err = security.ValidatePassword(userFound.Password, user.Password); err != nil {
 		responses.Err(w, http.StatusUnauthorized, err)
 		return
 	}

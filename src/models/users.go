@@ -12,16 +12,16 @@ import (
 
 // User represents any user in the sistem, most user fields are in portuguese since the DB is also in portugues
 type User struct {
-	ID          uint64    `json:"id,omitempty"`
-	Nome        string    `json:"nome_usuario,omitempty"`
-	Email       string    `json:"email_usuario,omitempty"`
-	Senha       string    `json:"senha,omitempty"`
-	IDAcesso    uint64    `json:"id_acesso,omitempty"`
-	CPF         string    `json:"cpf,omitempty"`
-	RG          string    `json:"rg,omitempty"`
-	Celular     string    `json:"celular,omitempty"`
-	DataNasc    time.Time `json:"data_nascimento,omitempty"`
-	DataCriacao time.Time `json:"data_criacao,omitempty"`
+	ID       uint64    `json:"id,omitempty"`
+	Name     string    `json:"nome_usuario,omitempty"`
+	Email    string    `json:"email_usuario,omitempty"`
+	Password string    `json:"senha,omitempty"`
+	IDAccess uint64    `json:"id_acesso,omitempty"`
+	CPF      string    `json:"cpf,omitempty"`
+	RG       string    `json:"rg,omitempty"`
+	Phone    string    `json:"celular,omitempty"`
+	Birth    time.Time `json:"data_nascimento,omitempty"`
+	Creation time.Time `json:"data_criacao,omitempty"`
 }
 
 // Prepare Treats user info and validates it
@@ -42,7 +42,7 @@ func (user *User) Prepare(step string) error {
 func (user *User) validate(step string) error {
 	log.Println("DEBUG: Entrou no validate")
 
-	if user.Nome == "" {
+	if user.Name == "" {
 		return errors.New("O nome é obrigatório e não pode estar em branco")
 	}
 
@@ -59,7 +59,7 @@ func (user *User) validate(step string) error {
 		return err
 	}
 
-	if step == "cadastro" && user.Senha == "" {
+	if step == "cadastro" && user.Password == "" {
 		return errors.New("A senha é obrigatória e não pode estar em branco")
 	}
 
@@ -68,16 +68,16 @@ func (user *User) validate(step string) error {
 
 // format Formats and trims blank spaces. Also applies hashing to the password.
 func (user *User) format(step string) error {
-	user.Nome = strings.TrimSpace(user.Nome)
+	user.Name = strings.TrimSpace(user.Name)
 	user.Email = strings.TrimSpace(user.Email)
 
 	if step == "register" {
-		hashedPassword, err := security.Hash(user.Senha)
+		hashedPassword, err := security.Hash(user.Password)
 		if err != nil {
 			return err
 		}
 
-		user.Senha = string(hashedPassword)
+		user.Password = string(hashedPassword)
 	}
 
 	return nil
