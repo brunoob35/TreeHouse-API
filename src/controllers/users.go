@@ -79,23 +79,23 @@ func FetchUsers(w http.ResponseWriter, r *http.Request) {
 func FetchUser(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
 
-	userID, erro := strconv.ParseUint(params["usuarioId"], 10, 64)
-	if erro != nil {
-		responses.Err(w, http.StatusBadRequest, erro)
+	userID, err := strconv.ParseUint(params["userID"], 10, 64)
+	if err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
 		return
 	}
 
-	db, erro := persistency.Connect()
-	if erro != nil {
-		responses.Err(w, http.StatusInternalServerError, erro)
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 	defer db.Close()
 
 	repo := repository.UsersNewRepo(db)
-	user, erro := repo.FetchByID(userID)
-	if erro != nil {
-		responses.Err(w, http.StatusInternalServerError, erro)
+	user, err := repo.FetchByID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -104,7 +104,17 @@ func FetchUser(w http.ResponseWriter, r *http.Request) {
 
 // UpdateUser updates as user from the persistency by userID
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
-	w.Write([]byte("Updates user"))
+	//params := mux.Vars(r)
+	//
+	//userID, err := strconv.ParseUint(params["userID"], 10, 64)
+	//if err != nil {
+	//	responses.Err(w, http.StatusBadRequest, err)
+	//	return
+	//}
+	//
+	//requestBody, err := io.ReadAll(r.Body)
+
+	w.Write([]byte("Updates a user"))
 }
 
 // DeleteUser deletes an usser from the persistency by userID
