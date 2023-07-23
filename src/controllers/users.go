@@ -29,7 +29,6 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	//todo: implement step functionality
 	if err = newUser.Prepare("register"); err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
