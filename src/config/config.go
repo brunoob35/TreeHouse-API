@@ -10,8 +10,10 @@ import (
 
 var (
 	//ConncetionString = ""
-	Port             = 0
-	Cfg = mysql.Config{}
+	Port = 0
+	Cfg  = mysql.Config{}
+	// SecretKey is the key to sign the webtoken
+	SecretKey []byte
 )
 
 // LoadEnv loads the env variable
@@ -29,7 +31,6 @@ func LoadEnv() {
 		Port = 9000
 	}
 
-
 	Cfg = mysql.Config{
 		User:   os.Getenv("DB_USER"),
 		Passwd: os.Getenv("DB_PASSWORD"),
@@ -38,15 +39,5 @@ func LoadEnv() {
 		DBName: os.Getenv("DB_DATABASE"),
 	}
 
-
-	//ConncetionString = fmt.Sprintf("%s:%s@/(%s:%s)?charset=utf8&parseTime=True&loc=Local",
-	//	os.Getenv("DB_USER"),
-	//	os.Getenv("DB_PASSWORD"),
-	//	os.Getenv("DB_NAME"),
-	//	os.Getenv("DB_PORT"),
-	//)
-
+	SecretKey = []byte(os.Getenv("SECRET_KEY"))
 }
-
-//root@127.0.0.1:3306
-//jdbc:mysql://127.0.0.1:3306/?user=root

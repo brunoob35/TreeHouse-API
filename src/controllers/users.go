@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
-	"github.com/brunoob35/TreeHouse-API/src/model"
+	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
 	"github.com/brunoob35/TreeHouse-API/src/responses"
@@ -23,14 +23,13 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Json unmarshal into user struct
-	var newUser model.User
+	var newUser models.User
 	if err = json.Unmarshal(bodyRequest, &newUser); err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
 	}
 
-	//todo: implement step functionality
-	if err = newUser.Prepare("temp step"); err != nil {
+	if err = newUser.Prepare("register"); err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
 	}
@@ -55,7 +54,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // FetchUsers fetch all users from the persistency
-/* I've implemented  this method for the CRUD purposes, but it doesn't seem too relevant right now
+/* I've implemented this method for the CRUD purposes, but it doesn't seem too relevant right now
 I might consider different uses for this function. Respository function is commented. Adapt query if planning on using*/
 func FetchUsers(w http.ResponseWriter, r *http.Request) {
 	nomeOuNick := strings.ToLower(r.URL.Query().Get("usuario"))
@@ -67,7 +66,7 @@ func FetchUsers(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repo := repository.UsersNewRepo(db)
-	users, erro := repo.Fetch(nomeOuNick)
+	users, erro := repo.FetchAllUsers(nomeOuNick)
 	if erro != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
@@ -105,16 +104,17 @@ func FetchUser(w http.ResponseWriter, r *http.Request) {
 
 // UpdateUser updates as user from the persistency by userID
 func UpdateUser(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
+	//params := mux.Vars(r)
+	//
+	//userID, err := strconv.ParseUint(params["userID"], 10, 64)
+	//if err != nil {
+	//	responses.Err(w, http.StatusBadRequest, err)
+	//	return
+	//}
+	//
+	//requestBody, err := io.ReadAll(r.Body)
 
-	userID, err := strconv.ParseUint(params["userID"], 10, 64)
-	if err != nil {
-		responses.Err(w, http.StatusBadRequest, err)
-		return
-	}
-
-	requestBody, err := io.ReadAll(r.Body)
-
+	w.Write([]byte("Updates a user"))
 }
 
 // DeleteUser deletes an usser from the persistency by userID

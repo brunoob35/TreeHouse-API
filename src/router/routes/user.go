@@ -5,36 +5,36 @@ import (
 	"net/http"
 )
 
-//Routes CRUD example
+// Routes CRUD example
 var userRoutes = []Routes{
 	{
-		URI: "/users",
-		Method: http.MethodPost,
+		URI:      "/users",
+		Method:   http.MethodPost,
 		Function: controllers.CreateUser,
-		Auth: false,
+		Auth:     false,
 	},
 	{
-		URI: "/users",
-		Method: http.MethodGet,
+		URI:      "/users",
+		Method:   http.MethodGet,
 		Function: controllers.FetchUsers,
-		Auth: false,
+		Auth:     true,
 	},
 	{
-		URI: "/users/{userID}",
-		Method: http.MethodGet,
+		URI:      "/users/{userID}",
+		Method:   http.MethodGet,
 		Function: controllers.FetchUser,
-		Auth: false,
+		Auth:     false,
 	},
 	{
-		URI: "/users/{userID}",
-		Method: http.MethodPut,
+		URI:      "/users/{userID}",
+		Method:   http.MethodPut,
 		Function: controllers.UpdateUser,
-		Auth: false,
+		Auth:     false,
 	},
 	{
-		URI: "/users/{userID}",
-		Method: http.MethodDelete,
+		URI:      "/users/{userID}",
+		Method:   http.MethodDelete,
 		Function: controllers.DeleteUser,
-		Auth: false,
+		Auth:     false,
 	},
 }
