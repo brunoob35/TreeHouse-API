@@ -2,28 +2,25 @@ package utils
 
 import (
 	"errors"
-	"log"
 	"math"
 	"strconv"
 	"strings"
 )
 
+//todo: Refact and translate this code portion
+
+// CPFValidator validades if the CPF is valid on a three-step validation.
 func CPFValidator(cpf string) error {
 	if val := CheckAllEqual(cpf); val == true {
 		if val = CalcularDv1(cpf); val == true {
 			if val = CalcularDv2(cpf); val == true {
-
 				return nil
 			} else {
 				return errors.New("DV2 invalido, CPF Invalido")
 			}
-			return nil
 		} else {
 			return errors.New("DV1 invalido, CPF Invalido")
-
 		}
-		return nil
-
 	} else {
 		return errors.New("Numeros Iguais, CPF Invalido")
 	}
@@ -84,7 +81,6 @@ func CheckAllEqual(cpf string) bool {
 	FirstNumber := cpfSlice[0]
 
 	for _, i := range cpfSlice {
-
 		if i != FirstNumber {
 			return true
 		}

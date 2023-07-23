@@ -2,7 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
-	"github.com/brunoob35/TreeHouse-API/src/model"
+	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
 	"github.com/brunoob35/TreeHouse-API/src/responses"
@@ -23,14 +23,13 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	//Json unmarshal into user struct
-	var newUser model.User
+	var newUser models.User
 	if err = json.Unmarshal(bodyRequest, &newUser); err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
 	}
 
-	//todo: implement step functionality
-	if err = newUser.Prepare("temp step"); err != nil {
+	if err = newUser.Prepare("register"); err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
 	}
@@ -55,7 +54,7 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 }
 
 // FetchUsers fetch all users from the persistency
-/* I've implemente this method for the CRUD purposes, but it doesn't seem too relevant right now
+/* I've implemented this method for the CRUD purposes, but it doesn't seem too relevant right now
 I might consider different uses for this function. Respository function is commented. Adapt query if planning on using*/
 func FetchUsers(w http.ResponseWriter, r *http.Request) {
 	nomeOuNick := strings.ToLower(r.URL.Query().Get("usuario"))
@@ -67,7 +66,7 @@ func FetchUsers(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repo := repository.UsersNewRepo(db)
-	users, erro := repo.Fetch(nomeOuNick)
+	users, erro := repo.FetchAllUsers(nomeOuNick)
 	if erro != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
