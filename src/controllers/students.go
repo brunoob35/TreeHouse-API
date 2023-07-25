@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
+	"github.com/brunoob35/TreeHouse-API/src/repository"
 	"github.com/brunoob35/TreeHouse-API/src/responses"
 	"github.com/gorilla/mux"
 	"io"
@@ -35,15 +36,15 @@ func CreateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repository.NewStudentsRepository(db)
+	repo := repository.StudentsNewRepo(db)
 
-	newStudent, err = repo.Create(newStudent)
+	createdStudent, err := repo.Create(newStudent)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	responses.JSON(w, http.StatusCreated, newStudent)
+	responses.JSON(w, http.StatusCreated, createdStudent)
 }
 
 // FetchStudentByID fetches a student from the DB by ID
@@ -61,7 +62,7 @@ func FetchStudentByID(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repository.NewStudentsRepository(db)
+	repo := repository.StudentsNewRepo(db)
 	student, err := repo.FetchByID(studentID)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -80,7 +81,7 @@ func FetchAllStudents(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repository.NewStudentsRepository(db)
+	repo := repository.StudentsNewRepo(db)
 	students, err := repo.FetchAll()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -121,7 +122,7 @@ func UpdateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repository.NewStudentsRepository(db)
+	repo := repository.StudentsNewRepo(db)
 	updatedStudent.ID = int64(studentID)
 	err = repo.Update(updatedStudent)
 	if err != nil {

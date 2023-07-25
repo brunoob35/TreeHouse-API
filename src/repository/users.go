@@ -34,7 +34,7 @@ func (u Users) Create(user models.User) (uint64, error) {
 	}
 	defer statement.Close()
 
-	result, err := statement.Exec(user.Nome, user.Email, user.Senha, user.IDAcesso, user.CPF, user.RG, user.Celular)
+	result, err := statement.Exec(user.Name, user.Email, user.Password, user.IDAccess, user.CPF, user.RG, user.Phone)
 	if err != nil {
 		return 0, err
 	}
@@ -65,8 +65,8 @@ func (u Users) FetchAllUsers(nick string) ([]models.User, error) {
 		if err = lines.Scan(
 			&user.ID,
 			&user.Email,
-			&user.Nome,
-			&user.IDAcesso,
+			&user.Name,
+			&user.IDAccess,
 		); err != nil {
 			return nil, err
 		}
@@ -122,7 +122,7 @@ func (u Users) FetchByEmail(email string) (models.User, error) {
 	var user models.User
 
 	if line.Next() {
-		if err = line.Scan(&user.ID, &user.Senha); err != nil {
+		if err = line.Scan(&user.ID, &user.Password); err != nil {
 			return models.User{}, err
 		}
 	}
