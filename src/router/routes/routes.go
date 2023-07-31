@@ -15,8 +15,10 @@ type Routes struct {
 
 // Config adds all routes in the Router
 func Config(r *mux.Router) *mux.Router {
-	var routes []Routes
-	routes = append(userRoutes, loginRoutes)
+	routes := userRoutes
+	routes = append(routes, loginRoutes)
+	routes = append(routes, studentsRoutes...)
+	routes = append(routes, iotRoutes...)
 
 	for _, route := range routes {
 

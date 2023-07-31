@@ -49,6 +49,8 @@ func CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer db.Close()
+
 	responses.JSON(w, http.StatusCreated, newUser)
 
 }

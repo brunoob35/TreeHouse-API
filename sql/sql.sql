@@ -11,6 +11,7 @@ CREATE TABLE usuarios (
                           email_usuario VARCHAR(100) NOT NULL unique,
                           senha VARCHAR(255) NOT NULL,
                           id_acesso INT NOT NULL,
+                          id_funcao INT NOT NULL,
                           cpf VARCHAR(14),
                           rg VARCHAR(20),
                           celular VARCHAR(20),
@@ -23,14 +24,6 @@ CREATE TABLE usuarios (
 CREATE TABLE alunos (
                         id_aluno INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                         nome VARCHAR(255),
-                        idade INT,
-                        datahora_aniversario DATETIME,
-                        livro INT,
-                        professora INT,
-                        id_pais INT,
-                        id_ano_letivo INT,
-                        alfabetizacao INT,
-                        id_turma INT,
                         data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
 );
@@ -38,13 +31,8 @@ CREATE TABLE alunos (
 -- Tabela Profesora
 CREATE TABLE profesoras (
                             id_professora INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                            id_usuario_professora INT,
                             nome VARCHAR(255),
-                            aniversario_professora DATE,
-                            id_turma INT,
-                            id_salario INT,
                             data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-
 );
 
 -- Tabela Livros
@@ -62,6 +50,12 @@ CREATE TABLE turmas (
 );
 
 -- Tabela Aulas
+CREATE TABLE alunos_aulas (
+                              id_aluno INT,
+                              id_aula INT
+);
+
+-- Tabela Alunos das turmas
 CREATE TABLE aulas (
                        id_aula INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                        datahora_aula DATE,
@@ -71,16 +65,10 @@ CREATE TABLE aulas (
 
 );
 
--- Tabela Alunos das turmas
+-- Tabela Alunos nas aulas
 CREATE TABLE alunos_turmas (
                                id_aluno INT,
                                id_turma INT
-);
-
--- Tabela Alunos nas aulas
-CREATE TABLE alunos_aulas (
-                              id_aluno INT,
-                              id_aula INT
 );
 
 -- Tabela Status Aulas

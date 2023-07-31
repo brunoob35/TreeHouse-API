@@ -16,7 +16,7 @@ func StudentsNewRepo(db *sql.DB) *Students {
 	return &Students{db}
 }
 
-func (s Students) Create(student models.Students) (*models.Students, error) {
+func (s Students) Create() (models.Classes, error) {
 	return nil, nil
 }
 

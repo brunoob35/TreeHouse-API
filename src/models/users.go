@@ -10,18 +10,19 @@ import (
 	"time"
 )
 
-// User represents any user in the sistem, most user fields are in portuguese since the DB is also in portugues
+// User represents any user in the sistem
 type User struct {
-	ID       uint64    `json:"id,omitempty"`
-	Name     string    `json:"nome_usuario,omitempty"`
-	Email    string    `json:"email_usuario,omitempty"`
-	Password string    `json:"senha,omitempty"`
-	IDAccess uint64    `json:"id_acesso,omitempty"`
-	CPF      string    `json:"cpf,omitempty"`
-	RG       string    `json:"rg,omitempty"`
-	Phone    string    `json:"celular,omitempty"`
-	Birth    time.Time `json:"data_nascimento,omitempty"`
-	Creation time.Time `json:"data_criacao,omitempty"`
+	ID         uint64    `json:"id,omitempty"`
+	Name       string    `json:"nome_usuario,omitempty"`
+	Email      string    `json:"email_usuario,omitempty"`
+	Password   string    `json:"senha,omitempty"`
+	IDAccess   uint64    `json:"id_acesso,omitempty"`
+	IDFunction uint64    `json:"id_funcao,omitempty"`
+	CPF        string    `json:"cpf,omitempty"`
+	RG         string    `json:"rg,omitempty"`
+	Phone      string    `json:"celular,omitempty"`
+	Birth      time.Time `json:"data_nascimento,omitempty"`
+	Creation   time.Time `json:"data_criacao,omitempty"`
 }
 
 // Prepare Treats user info and validates it
@@ -68,8 +69,14 @@ func (user *User) validate(step string) error {
 
 // format Formats and trims blank spaces. Also applies hashing to the password.
 func (user *User) format(step string) error {
+	//-----Trim Spaces
 	user.Name = strings.TrimSpace(user.Name)
 	user.Email = strings.TrimSpace(user.Email)
+	user.CPF = strings.TrimSpace(user.CPF)
+
+	//-----To Lower
+	user.Name = strings.ToLower(user.Name)
+	user.Email = strings.ToLower(user.Email)
 
 	if step == "register" {
 		hashedPassword, err := security.Hash(user.Password)
