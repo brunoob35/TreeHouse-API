@@ -3,7 +3,6 @@ package repository
 import (
 	"database/sql"
 	"github.com/brunoob35/TreeHouse-API/src/models"
-	"log"
 )
 
 // Classes receives the DB connection and handles it
@@ -29,7 +28,7 @@ func (l Lessons) Create(aula models.Lessons) (uint64, error) {
 	}
 	defer statement.Close()
 
-	result, err := statement.Exec(aula)
+	result, err := statement.Exec(aula.Date)
 	if err != nil {
 		return 0, err
 	}
@@ -138,9 +137,7 @@ func (l Lessons) SelectClassStudents(class models.Classes) ([]models.Students, e
 	return students, nil
 }
 
-func (l Lessons) SetStudent(classID int, student models.Students) (uint64, error) {
-	log.Println("Aluno", student)
-
+func (l Lessons) SetStudentLesson(lesson models.Lessons, student models.Students) (uint64, error) {
 	query := `INSERT INTO treehousedb.alunos_turmas
 				(id_turma, id_aluno)
 				VALUES (?, ?)`
@@ -151,7 +148,7 @@ func (l Lessons) SetStudent(classID int, student models.Students) (uint64, error
 	}
 	defer statement.Close()
 
-	result, err := statement.Exec(classID, student.ID)
+	result, err := statement.Exec(lesson.ID, student.ID)
 	if err != nil {
 		return 0, err
 	}

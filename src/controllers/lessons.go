@@ -39,10 +39,48 @@ func CreateLesson(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repo := repository.LessonsNewRepo(db)
-	newLesson, err = repo.Create(newLesson)
+	newLesson.ID, err = repo.Create(newLesson)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
+	}
+
+	responses.JSON(w, http.StatusCreated, newLesson)
+}
+
+func CreateLessonWStudent(w http.ResponseWriter, r *http.Request) {
+	// Read the request body
+	bodyRequest, err := io.ReadAll(r.Body)
+	if err != nil {
+		responses.Err(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	// Unmarshal the request body into a lesson struct
+	var newLesson models.Lessons
+	if err := json.Unmarshal(bodyRequest, &newLesson); err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repository.LessonsNewRepo(db)
+	newLesson.ID, err = repo.Create(newLesson)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	students, err := GetClassStudents(w, newLesson.ClassID)
+
+	for _, student := range students {
+		repo.SetStudentLesson(newLesson, student)
 	}
 
 	responses.JSON(w, http.StatusCreated, newLesson)

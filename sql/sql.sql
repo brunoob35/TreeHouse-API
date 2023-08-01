@@ -69,11 +69,31 @@ CREATE TABLE professores_aulas (
 CREATE TABLE aulas (
                        id_aula INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                        datahora_aula DATE,
+                       datahora_fim_aula DATE,
                        id_turma INT,
                        id_status_aula INT,
                        data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
-
 );
+
+DELIMITER //
+CREATE TRIGGER set_default_datahora_fim_aula
+    BEFORE INSERT ON aulas
+    FOR EACH ROW
+BEGIN
+    SET NEW.datahora_fim_aula = NEW.datahora_aula + INTERVAL 50 MINUTE;
+END;
+//
+DELIMITER ;
+
+DELIMITER //
+CREATE TRIGGER update_datahora_fim_aula
+    BEFORE UPDATE ON aulas
+    FOR EACH ROW
+BEGIN
+    SET NEW.datahora_fim_aula = NEW.datahora_aula + INTERVAL 50 MINUTE;
+END;
+//
+DELIMITER ;
 
 -- Tabela alunos nas turmas
 CREATE TABLE alunos_turmas (

@@ -49,18 +49,35 @@ func CreateClass(w http.ResponseWriter, r *http.Request) {
 }
 
 // FetchClassByID fetches a class from the persistency by ID
-func FetchClassByID(w http.ResponseWriter, r *http.Request) {
-	params := mux.Vars(r)
-	classID, err := strconv.Atoi(params["id"])
-	if err != nil {
-		responses.Err(w, http.StatusBadRequest, err)
-		return
-	}
+//func FetchClassByID(w http.ResponseWriter, r *http.Request) {
+//	params := mux.Vars(r)
+//	classID, err := strconv.Atoi(params["classID"])
+//	if err != nil {
+//		responses.Err(w, http.StatusBadRequest, err)
+//		return
+//	}
+//
+//	db, err := persistency.Connect()
+//	if err != nil {
+//		responses.Err(w, http.StatusInternalServerError, err)
+//		return
+//	}
+//	defer db.Close()
+//
+//	repo := repository.ClassesNewRepo(db)
+//	class, err := repo.FetchByID(classID)
+//	if err != nil {
+//		responses.Err(w, http.StatusInternalServerError, err)
+//		return
+//	}
+//
+//	responses.JSON(w, http.StatusOK, class)
+//}
 
+func GetClassByID(w http.ResponseWriter, classID uint64) (models.Classes, error) {
 	db, err := persistency.Connect()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
-		return
 	}
 	defer db.Close()
 
@@ -68,10 +85,28 @@ func FetchClassByID(w http.ResponseWriter, r *http.Request) {
 	class, err := repo.FetchByID(classID)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
-		return
 	}
 
 	responses.JSON(w, http.StatusOK, class)
+	return class, nil
+}
+
+func GetClassStudents(w http.ResponseWriter, classID uint64) ([]models.Students, error) {
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+	}
+	defer db.Close()
+
+	var class models.Classes
+	class.ID = classID
+	repo := repository.ClassesNewRepo(db)
+	students, err := repo.SelectClassStudents(class)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+	}
+
+	return students, nil
 }
 
 // FetchAllClasses fetches all classes from the persistency

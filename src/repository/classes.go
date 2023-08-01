@@ -45,8 +45,30 @@ func (c Classes) Update(interface{}) error {
 	return nil
 }
 
-func (c Classes) FetchByID(id int) (interface{}, error) {
-	return nil, nil
+func (c Classes) FetchByID(classID uint64) (models.Classes, error) {
+	query := `SELECT * FROM treehousedb.turmas WHERE id_turma = ? AND ativo = 1`
+
+	line, err := c.db.Query(query, classID)
+	if err != nil {
+		return models.Classes{}, err
+	}
+
+	defer line.Close()
+
+	var class models.Classes
+
+	if line.Next() {
+		if err = line.Scan(
+			&class.ID,
+			&class.Name,
+			&class.Teacher,
+			&class.Active,
+		); err != nil {
+			return models.Classes{}, err
+		}
+	}
+
+	return class, nil
 }
 
 func (c Classes) FetchAll() ([]models.Classes, error) {
