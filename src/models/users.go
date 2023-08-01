@@ -5,23 +5,23 @@ import (
 	"github.com/badoux/checkmail"
 	"github.com/brunoob35/TreeHouse-API/src/security"
 	"github.com/brunoob35/TreeHouse-API/src/utils"
-	"log"
 	"strings"
 	"time"
 )
 
 // User represents any user in the sistem
 type User struct {
-	ID         uint64    `json:"id,omitempty"`
-	Name       string    `json:"nome_usuario,omitempty"`
-	Email      string    `json:"email_usuario,omitempty"`
+	ID         uint64    `json:"id"`
+	Name       string    `json:"nome_usuario"`
+	Email      string    `json:"email_usuario"`
 	Password   string    `json:"senha,omitempty"`
-	IDAccess   uint64    `json:"id_acesso,omitempty"`
-	IDFunction uint64    `json:"id_funcao,omitempty"`
+	IDAccess   uint64    `json:"id_acesso"`
+	IDFunction uint64    `json:"id_funcao"`
 	CPF        string    `json:"cpf,omitempty"`
 	RG         string    `json:"rg,omitempty"`
 	Phone      string    `json:"celular,omitempty"`
 	Birth      time.Time `json:"data_nascimento,omitempty"`
+	Active     uint64    `json:"ativo,omitempty"`
 	Creation   time.Time `json:"data_criacao,omitempty"`
 }
 
@@ -41,7 +41,6 @@ func (user *User) Prepare(step string) error {
 
 // validate Prevents the sistem to save any blank space or invalid info.
 func (user *User) validate(step string) error {
-	log.Println("DEBUG: Entrou no validate")
 
 	if user.Name == "" {
 		return errors.New("O nome é obrigatório e não pode estar em branco")

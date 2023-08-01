@@ -19,6 +19,12 @@ var studentsRoutes = []Routes{
 		Auth:     true,
 	},
 	{
+		URI:      "/students/active",
+		Method:   http.MethodGet,
+		Function: controllers.FetchActiveStudents,
+		Auth:     true,
+	},
+	{
 		URI:      "/students/{studentID}",
 		Method:   http.MethodGet,
 		Function: controllers.FetchStudentByID,
@@ -30,10 +36,10 @@ var studentsRoutes = []Routes{
 		Function: controllers.UpdateStudent,
 		Auth:     true,
 	},
-	{
-		URI:      "/students/{studentID}",
-		Method:   http.MethodDelete,
-		Function: controllers.DeleteUser,
-		Auth:     true,
-	},
+	//{
+	//	URI:      "/students/{studentID}",
+	//	Method:   http.MethodDelete,
+	//	Function: controllers.DeleteStudent,
+	//	Auth:     true,
+	//},
 }

@@ -2,28 +2,30 @@ USE (database);
 
 DROP database IF EXISTS treehousedb;
 create database treehousedb;
-USE treehousedb;
-
--- Tabela Ususarios
 CREATE TABLE usuarios (
                           id_usuario INT NOT NULL AUTO_INCREMENT,
                           nome_usuario VARCHAR(50) NOT NULL,
                           email_usuario VARCHAR(100) NOT NULL unique,
                           senha VARCHAR(255) NOT NULL,
-                          id_acesso INT NOT NULL,
-                          id_funcao INT NOT NULL,
+                          id_acesso INT NOT NULL DEFAULT 0,
+                          id_funcao INT NOT NULL DEFAULT 0,
                           cpf VARCHAR(14),
                           rg VARCHAR(20),
                           celular VARCHAR(20),
                           data_nascimento DATE,
+                          ativo TINYINT DEFAULT 1,
                           data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                           PRIMARY KEY (id_usuario)
 );
+
+-- Tabela Ususarios
+USE treehousedb;
 
 -- Tabela Aluno
 CREATE TABLE alunos (
                         id_aluno INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                         nome VARCHAR(255),
+                        ativo TINYINT DEFAULT 1,
                         data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 
 );
@@ -32,6 +34,7 @@ CREATE TABLE alunos (
 CREATE TABLE profesoras (
                             id_professora INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                             nome VARCHAR(255),
+                            ativo TINYINT DEFAULT 1,
                             data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -46,6 +49,7 @@ CREATE TABLE turmas (
                         id_turma INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                         nome_turma VARCHAR(50),
                         id_professor INT UNSIGNED,
+                        ativo TINYINT DEFAULT 1,
                         data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -55,7 +59,13 @@ CREATE TABLE alunos_aulas (
                               id_aula INT
 );
 
--- Tabela Alunos das turmas
+-- Tabela professores nas aulas
+CREATE TABLE professores_aulas (
+                                   id_professor INT,
+                                   id_aula INT
+);
+
+-- Tabela aulas
 CREATE TABLE aulas (
                        id_aula INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
                        datahora_aula DATE,
@@ -65,7 +75,7 @@ CREATE TABLE aulas (
 
 );
 
--- Tabela Alunos nas aulas
+-- Tabela alunos nas turmas
 CREATE TABLE alunos_turmas (
                                id_aluno INT,
                                id_turma INT

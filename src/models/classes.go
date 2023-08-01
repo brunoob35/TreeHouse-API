@@ -2,7 +2,6 @@ package models
 
 import (
 	"errors"
-	"log"
 	"strings"
 	"time"
 )
@@ -14,6 +13,7 @@ type Classes struct {
 	Teacher  Teachers   `json:"id_professor,omitempty"`
 	Creation time.Time  `json:"data_criacao,omitempty"`
 	Students []Students `json:"alunos"`
+	Active   uint64     `json:"ativo"`
 }
 
 func (c *Classes) Prepare() error {
@@ -29,7 +29,6 @@ func (c *Classes) Prepare() error {
 }
 
 func (c *Classes) validate() error {
-	log.Println("DEBUG: Entrou no validate")
 
 	if c.Name == "" {
 		return errors.New("O nome é obrigatório e não pode estar em branco")

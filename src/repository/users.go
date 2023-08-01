@@ -18,7 +18,7 @@ func UsersNewRepo(db *sql.DB) *Users {
 
 // Create inserts and user into the DB and returns the new user ID
 func (u Users) Create(user models.User) (uint64, error) {
-	query := `INSERT INTO usuarios
+	query := `INSERT INTO treehousedb.usuarios
 				(nome_usuario,
 				 email_usuario,
 				 senha,
@@ -47,7 +47,7 @@ func (u Users) Create(user models.User) (uint64, error) {
 }
 
 func (u Users) FetchAllUsers(nick string) ([]models.User, error) {
-	query := `SELECT * FROM ususarios`
+	query := `SELECT * FROM treehousedb.usuarios`
 
 	lines, err := u.db.Query(query)
 
@@ -111,12 +111,13 @@ func (u Users) FetchByEmail(email string) (models.User, error) {
 	query := `SELECT 
     			id_usuario, 
     			senha
-			FROM usuarios WHERE email_usuario = ?`
+			FROM treehousedb.usuarios WHERE email_usuario = ?`
 
 	line, err := u.db.Query(query, email)
 	if err != nil {
 		return models.User{}, err
 	}
+
 	defer line.Close()
 
 	var user models.User

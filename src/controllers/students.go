@@ -26,8 +26,10 @@ func CreateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Perform any necessary preparations on the new student
-	// (e.g., validation, formatting, etc.)
+	if err = newStudent.Prepare(); err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
 
 	db, err := persistency.Connect()
 	if err != nil {
@@ -83,6 +85,25 @@ func FetchAllStudents(w http.ResponseWriter, r *http.Request) {
 
 	repo := repository.StudentsNewRepo(db)
 	students, err := repo.FetchAll()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, students)
+}
+
+// FetchAllStudents fetches all students from the DB
+func FetchActiveStudents(w http.ResponseWriter, r *http.Request) {
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repository.StudentsNewRepo(db)
+	students, err := repo.FetchAllActive()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return

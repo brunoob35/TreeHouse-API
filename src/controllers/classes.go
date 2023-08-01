@@ -81,7 +81,6 @@ func FetchAllClasses(w http.ResponseWriter, r *http.Request) {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
-	defer db.Close()
 
 	repo := repository.ClassesNewRepo(db)
 	classes, err := repo.FetchAll()
@@ -89,6 +88,35 @@ func FetchAllClasses(w http.ResponseWriter, r *http.Request) {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
+
+	for _, class := range classes {
+		class.Students, err = repo.SelectClassStudents(class)
+	}
+
+	defer db.Close()
+
+	responses.JSON(w, http.StatusOK, classes)
+}
+
+func FetchActiveClasses(w http.ResponseWriter, r *http.Request) {
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	repo := repository.ClassesNewRepo(db)
+	classes, err := repo.FetchAllActive()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	for _, class := range classes {
+		class.Students, err = repo.SelectClassStudents(class)
+	}
+
+	defer db.Close()
 
 	responses.JSON(w, http.StatusOK, classes)
 }
@@ -135,4 +163,70 @@ func UpdateClass(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses.JSON(w, http.StatusOK, updatedClass)
+}
+
+func SetStudentToClass(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	classID, err := strconv.Atoi(params["classID"])
+	bodyRequest, err := io.ReadAll(r.Body)
+	if err != nil {
+		responses.Err(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	var student models.Students
+	if err := json.Unmarshal(bodyRequest, &student); err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	repo := repository.ClassesNewRepo(db)
+	classesUpdated, err := repo.SetStudent(classID, student)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	defer db.Close()
+
+	responses.JSON(w, http.StatusCreated, classesUpdated)
+}
+
+func RemoveStudentFromClass(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	classID, err := strconv.Atoi(params["classID"])
+	bodyRequest, err := io.ReadAll(r.Body)
+	if err != nil {
+		responses.Err(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	var student models.Students
+	if err := json.Unmarshal(bodyRequest, &student); err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	repo := repository.ClassesNewRepo(db)
+	classesUpdated, err := repo.RemoveStudent(classID, student)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	defer db.Close()
+
+	responses.JSON(w, http.StatusCreated, classesUpdated)
 }
