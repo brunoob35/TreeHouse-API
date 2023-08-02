@@ -12,7 +12,7 @@ import (
 	"strconv"
 )
 
-// CreateLessons inserts a new lesson into the persistency
+// CreateLesson inserts a new lesson into the persistency
 func CreateLesson(w http.ResponseWriter, r *http.Request) {
 	// Read the request body
 	bodyRequest, err := io.ReadAll(r.Body)
@@ -77,19 +77,69 @@ func CreateLessonWStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	students, err := GetClassStudents(w, newLesson.ClassID)
+	newLesson.Students, err = GetClassStudents(w, newLesson.ClassID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
 
-	for _, student := range students {
+	for _, student := range newLesson.Students {
 		repo.SetStudentLesson(newLesson, student)
 	}
 
 	responses.JSON(w, http.StatusCreated, newLesson)
 }
 
-// FetchLessonByID fetches a lesson from the persistency by ID
-func FetchLessonByID(w http.ResponseWriter, r *http.Request) {
+// FetchLessonByTecherID fetches a lesson from the persistency by the techer ID
+func FetchLessonByTecherID(w http.ResponseWriter, r *http.Request) {
 	params := mux.Vars(r)
-	lessonID, err := strconv.Atoi(params["id"])
+	lessonID, err := strconv.Atoi(params["techerID"])
+	if err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repository.LessonsNewRepo(db)
+	lessons, err := repo.FetchByTeacherID(uint32(lessonID))
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	studentsRepo := repository.StudentsNewRepo(db)
+
+	for _, lesson := range lessons {
+		studentsIDs, err := repo.GetStudentLesson(lesson)
+		if err != nil {
+			responses.Err(w, http.StatusInternalServerError, err)
+			return
+		}
+
+		for _, studentID := range studentsIDs {
+			student, err := studentsRepo.FetchByID(studentID.ID)
+			if err != nil {
+				responses.Err(w, http.StatusInternalServerError, err)
+				return
+			}
+
+			lesson.Students = append(lesson.Students, student)
+		}
+	}
+
+	responses.JSON(w, http.StatusOK, lessons)
+}
+
+// FetchLessonByClassID fetches a lesson from the persistency by the class ID
+func FetchLessonByClassID(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	lessonID, err := strconv.Atoi(params["classID"])
 	if err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
@@ -165,7 +215,7 @@ func UpdateLesson(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repo := repository.LessonsNewRepo(db)
-	updatedLesson.ID = lessonID
+	updatedLesson.ID = uint64(lessonID)
 	err = repo.Update(updatedLesson)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)

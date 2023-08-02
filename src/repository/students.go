@@ -16,6 +16,7 @@ func StudentsNewRepo(db *sql.DB) *Students {
 	return &Students{db}
 }
 
+// Create Creates a new student in DB
 func (s Students) Create(student models.Students) (uint64, error) {
 	query := `INSERT INTO treehousedb.alunos
 				(nome)
@@ -39,10 +40,33 @@ func (s Students) Create(student models.Students) (uint64, error) {
 	return uint64(lastInsertedID), nil
 }
 
-func (s Students) FetchByID(id int) (interface{}, error) {
-	return nil, nil
+// FetchByID Fetches a student from the DB
+func (s Students) FetchByID(studentID uint64) (models.Students, error) {
+	query := `SELECT * FROM treehousedb.alunos WHERE id = ?`
+
+	line, err := s.db.Query(query, studentID)
+	if err != nil {
+		return models.Students{}, err
+	}
+
+	defer line.Close()
+
+	var student models.Students
+
+	if line.Next() {
+		if err = line.Scan(
+			&student.ID,
+			&student.Name,
+			&student.Active,
+		); err != nil {
+			return models.Students{}, err
+		}
+	}
+
+	return student, nil
 }
 
+// FetchAll Fetches all students either active or not
 func (s Students) FetchAll() ([]models.Students, error) {
 	query := `SELECT * FROM treehousedb.alunos`
 
@@ -73,6 +97,7 @@ func (s Students) FetchAll() ([]models.Students, error) {
 	return students, nil
 }
 
+// FetchAllActive fetches all active students ignoring inactive ones
 func (s Students) FetchAllActive() ([]models.Students, error) {
 	query := `SELECT * FROM treehousedb.alunos WHERE ativo = 1`
 

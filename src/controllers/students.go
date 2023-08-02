@@ -65,7 +65,7 @@ func FetchStudentByID(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repo := repository.StudentsNewRepo(db)
-	student, err := repo.FetchByID(studentID)
+	student, err := repo.FetchByID(uint64(studentID))
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return

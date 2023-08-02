@@ -6,7 +6,7 @@ import (
 )
 
 type Students struct {
-	ID     int64  `json:"id"`
+	ID     uint64 `json:"id"`
 	Name   string `json:"nome"`
 	Active uint64 `json:"ativo,omitempty"`
 }

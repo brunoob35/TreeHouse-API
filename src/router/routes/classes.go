@@ -5,7 +5,7 @@ import (
 	"net/http"
 )
 
-var iotRoutes = []Routes{
+var classesRoutes = []Routes{
 	{
 		URI:      "/classes",
 		Method:   http.MethodPost,
@@ -26,18 +26,6 @@ var iotRoutes = []Routes{
 	},
 	{
 		URI:      "/classes/{classID}",
-		Method:   http.MethodGet,
-		Function: controllers.FetchClassByID,
-		Auth:     true,
-	},
-	//{
-	//	URI:      "/classes/{classID}",
-	//	Method:   http.MethodPut,
-	//	Function: controllers.UpdateClass,
-	//	Auth:     true,
-	//},
-	{
-		URI:      "/classes/{classID}",
 		Method:   http.MethodPut,
 		Function: controllers.SetStudentToClass,
 		Auth:     true,
@@ -48,4 +36,16 @@ var iotRoutes = []Routes{
 		Function: controllers.RemoveStudentFromClass,
 		Auth:     true,
 	},
+	//{
+	//	URI:      "/classes/{classID}",
+	//	Method:   http.MethodGet,
+	//	Function: controllers.FetchClassByID,
+	//	Auth:     true,
+	//},
+	//{
+	//	URI:      "/classes/{classID}",
+	//	Method:   http.MethodPut,
+	//	Function: controllers.UpdateClass,
+	//	Auth:     true,
+	//},
 }

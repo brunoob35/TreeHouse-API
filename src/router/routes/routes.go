@@ -18,7 +18,8 @@ func Config(r *mux.Router) *mux.Router {
 	routes := userRoutes
 	routes = append(routes, loginRoutes)
 	routes = append(routes, studentsRoutes...)
-	routes = append(routes, iotRoutes...)
+	routes = append(routes, classesRoutes...)
+	routes = append(routes, lessonsRoutes...)
 
 	for _, route := range routes {
 

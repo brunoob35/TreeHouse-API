@@ -44,8 +44,35 @@ func (l Lessons) Update(interface{}) error {
 	return nil
 }
 
-func (l Lessons) FetchByID(id int) (interface{}, error) {
-	return nil, nil
+func (l Lessons) FetchByTeacherID(teacherID uint32) ([]models.Lessons, error) {
+	query := `SELECT * FROM treehousedb.aulas WHERE id_professor = ?`
+
+	lines, err := l.db.Query(query, teacherID)
+	if err != nil {
+		return nil, err
+	}
+
+	defer lines.Close()
+
+	var lessons []models.Lessons
+
+	for lines.Next() {
+		var lesson models.Lessons
+
+		if err = lines.Scan(
+			&lesson.ID,
+			&lesson.ClassID,
+			&lesson.Status,
+			&lesson.Date,
+			&lesson.End,
+		); err != nil {
+			return nil, err
+		}
+
+		lessons = append(lessons, lesson)
+	}
+
+	return lessons, nil
 }
 
 func (l Lessons) FetchAll() ([]models.Classes, error) {
@@ -79,43 +106,16 @@ func (l Lessons) FetchAll() ([]models.Classes, error) {
 	return classes, nil
 }
 
-func (l Lessons) FetchAllActive() ([]models.Classes, error) {
-	query := `SELECT * FROM treehousedb.turmas WHERE ativo = 1`
+// GetStudentLesson Fetches all students Ids who participate in given lesson
+func (l Lessons) GetStudentLesson(lesson models.Lessons) ([]models.Students, error) {
+	query := `SELECT * FROM treehousedb.alunos_aulas where id_aula = ?`
 
-	lines, err := l.db.Query(query)
+	lines, err := l.db.Query(query, lesson.ID)
+
 	if err != nil {
 		return nil, err
 	}
 
-	defer lines.Close()
-
-	var classes []models.Classes
-
-	for lines.Next() {
-		var class models.Classes
-
-		if err = lines.Scan(
-			&class.ID,
-			&class.Name,
-			&class.Teacher,
-			&class.Active,
-		); err != nil {
-			return nil, err
-		}
-
-		classes = append(classes, class)
-	}
-
-	return classes, nil
-}
-
-func (l Lessons) SelectClassStudents(class models.Classes) ([]models.Students, error) {
-	query := `SELECT * FROM treehousedb.alunos_turmas WHERE id_turma = ?`
-
-	lines, err := l.db.Query(query, class.ID)
-	if err != nil {
-		return nil, err
-	}
 	defer lines.Close()
 
 	var students []models.Students
@@ -125,8 +125,6 @@ func (l Lessons) SelectClassStudents(class models.Classes) ([]models.Students, e
 
 		if err = lines.Scan(
 			&student.ID,
-			&student.Name,
-			&student.Active,
 		); err != nil {
 			return nil, err
 		}
@@ -137,6 +135,7 @@ func (l Lessons) SelectClassStudents(class models.Classes) ([]models.Students, e
 	return students, nil
 }
 
+// SetStudentLesson Saves a student ID to a lesson
 func (l Lessons) SetStudentLesson(lesson models.Lessons, student models.Students) (uint64, error) {
 	query := `INSERT INTO treehousedb.alunos_turmas
 				(id_turma, id_aluno)
