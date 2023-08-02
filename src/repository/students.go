@@ -42,7 +42,7 @@ func (s Students) Create(student models.Students) (uint64, error) {
 
 // FetchByID Fetches a student from the DB
 func (s Students) FetchByID(studentID uint64) (models.Students, error) {
-	query := `SELECT * FROM treehousedb.alunos WHERE id = ?`
+	query := `SELECT * FROM treehousedb.alunos WHERE id_aluno = ?`
 
 	line, err := s.db.Query(query, studentID)
 	if err != nil {
