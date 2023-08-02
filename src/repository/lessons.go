@@ -45,7 +45,10 @@ func (l Lessons) Update(interface{}) error {
 }
 
 func (l Lessons) FetchByTeacherID(teacherID uint32) ([]models.Lessons, error) {
-	query := `SELECT * FROM treehousedb.aulas WHERE id_professor = ?`
+	query := `SELECT a.*
+				FROM treehousedb.aulas AS a
+				JOIN treehousedb.alunos_aulas AS aa ON a.id_aula = aa.id_aula
+				WHERE aa.id_professor = ?;`
 
 	lines, err := l.db.Query(query, teacherID)
 	if err != nil {
@@ -178,6 +181,10 @@ func (l Lessons) RemoveStudent(classID int, student models.Students) (uint64, er
 	}
 
 	return uint64(rowsAffected), nil
+}
+
+func (l Lessons) FetchByClassID(id int) (interface{}, error) {
+
 }
 
 //func (c Classes) SelectClassTeachers(class models.Classes) ([]models.Teachers, error) {

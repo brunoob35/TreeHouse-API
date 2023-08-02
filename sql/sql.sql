@@ -2,6 +2,9 @@ USE (database);
 
 DROP database IF EXISTS treehousedb;
 create database treehousedb;
+USE treehousedb;
+
+-- Tabela Ususarios
 CREATE TABLE usuarios (
                           id_usuario INT NOT NULL AUTO_INCREMENT,
                           nome_usuario VARCHAR(50) NOT NULL,
@@ -17,9 +20,6 @@ CREATE TABLE usuarios (
                           data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
                           PRIMARY KEY (id_usuario)
 );
-
--- Tabela Ususarios
-USE treehousedb;
 
 -- Tabela Aluno
 CREATE TABLE alunos (
@@ -56,7 +56,8 @@ CREATE TABLE turmas (
 -- Tabela Aulas
 CREATE TABLE alunos_aulas (
                               id_aluno INT,
-                              id_aula INT
+                              id_aula INT,
+                              id_professor INT
 );
 
 -- Tabela professores nas aulas
@@ -66,10 +67,10 @@ CREATE TABLE professores_aulas (
 );
 
 -- Tabela aulas
-CREATE TABLE aulas (
+CREATE TABLE treehousedb.aulas (
                        id_aula INT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-                       datahora_aula DATE,
-                       datahora_fim_aula DATE,
+                       datahora_aula DATETIME,
+                       datahora_fim_aula DATETIME,
                        id_turma INT,
                        id_status_aula INT,
                        data_criacao DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP

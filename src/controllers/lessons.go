@@ -153,7 +153,7 @@ func FetchLessonByClassID(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repo := repository.LessonsNewRepo(db)
-	lesson, err := repo.FetchByID(lessonID)
+	lesson, err := repo.FetchByClassID(lessonID)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
