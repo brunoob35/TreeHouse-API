@@ -1,69 +1,33 @@
-package repository
+package repositories
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 )
 
-type Users struct {
+// UsersRepository is responsible for all database operations related to users.
+type UsersRepository struct {
 	db *sql.DB
 }
 
-func UsersNewRepo(db *sql.DB) *Users {
-	return &Users{db}
+// NewUsersRepository creates a new repository instance for users.
+func NewUsersRepository(db *sql.DB) *UsersRepository {
+	return &UsersRepository{db: db}
 }
 
-func (u Users) Create(user models.User) (uint64, error) {
-	tx, err := u.db.Begin()
-	if err != nil {
-		return 0, err
-	}
-
-	defer func() {
-		if err != nil {
-			_ = tx.Rollback()
-		}
-	}()
-
-	addressQuery := `
-		INSERT INTO treehousedb.enderecos (
-			rua,
-			numero,
-			bairro,
-			cidade,
-			estado,
-			pais,
-			complemento
-		) VALUES (?, ?, ?, ?, ?, ?, ?)`
-
-	addressStmt, err := tx.Prepare(addressQuery)
-	if err != nil {
-		return 0, err
-	}
-	defer addressStmt.Close()
-
-	addressResult, err := addressStmt.Exec(
-		user.Endereco.Rua,
-		user.Endereco.Numero,
-		user.Endereco.Bairro,
-		user.Endereco.Cidade,
-		user.Endereco.Estado,
-		user.Endereco.Pais,
-		nullIfEmpty(user.Endereco.Complemento),
-	)
-	if err != nil {
-		return 0, err
-	}
-
-	addressID, err := addressResult.LastInsertId()
-	if err != nil {
-		return 0, err
-	}
-
-	userQuery := `
-		INSERT INTO treehousedb.usuarios (
+// FetchByID searches for a user by its ID.
+//
+// It returns the user base data without loading permission relations.
+// Permissions are intentionally loaded separately because the application now
+// aggregates them into a numeric bitmask for authentication and authorization.
+func (r *UsersRepository) FetchByID(id uint64) (models.User, error) {
+	query := `
+		SELECT
+			id,
 			id_endereco,
 			senha,
 			nome,
@@ -72,23 +36,196 @@ func (u Users) Create(user models.User) (uint64, error) {
 			rg,
 			telefone,
 			ativo,
-			nascimento
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+			nascimento,
+			created_at,
+			updated_at
+		FROM treehousedb.usuarios
+		WHERE id = ?
+	`
 
-	userStmt, err := tx.Prepare(userQuery)
+	var user models.User
+
+	err := r.db.QueryRow(query, id).Scan(
+		&user.ID,
+		&user.IDEndereco,
+		&user.Senha,
+		&user.Nome,
+		&user.Email,
+		&user.CPF,
+		&user.RG,
+		&user.Telefone,
+		&user.Ativo,
+		&user.Nascimento,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, sql.ErrNoRows
+		}
+		return models.User{}, err
+	}
+
+	return user, nil
+}
+
+// FetchByEmail searches for a user by email.
+//
+// This function is usually used during the login flow before validating
+// the password and generating the JWT token.
+func (r *UsersRepository) FetchByEmail(email string) (models.User, error) {
+	query := `
+		SELECT
+			id,
+			id_endereco,
+			senha,
+			nome,
+			email,
+			cpf,
+			rg,
+			telefone,
+			ativo,
+			nascimento,
+			created_at,
+			updated_at
+		FROM treehousedb.usuarios
+		WHERE email = ?
+	`
+
+	var user models.User
+
+	err := r.db.QueryRow(query, email).Scan(
+		&user.ID,
+		&user.IDEndereco,
+		&user.Senha,
+		&user.Nome,
+		&user.Email,
+		&user.CPF,
+		&user.RG,
+		&user.Telefone,
+		&user.Ativo,
+		&user.Nascimento,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return models.User{}, sql.ErrNoRows
+		}
+		return models.User{}, err
+	}
+
+	return user, nil
+}
+
+// FetchPermissionIDsByUser returns all permission IDs assigned to a user.
+//
+// IMPORTANT:
+// The permission IDs stored in the database must already be valid bit flags
+// (1, 2, 4, 8, 16, ...). Because of that, they can later be aggregated into
+// a single numeric mask using the bitwise OR operator.
+func (r *UsersRepository) FetchPermissionIDsByUser(userID uint64) ([]uint64, error) {
+	query := `
+		SELECT up.id_permissao
+		FROM treehousedb.usuarios_permissoes up
+		WHERE up.id_usuario = ?
+		ORDER BY up.id_permissao
+	`
+
+	rows, err := r.db.Query(query, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var permissions []uint64
+
+	for rows.Next() {
+		var permissionID uint64
+
+		if err = rows.Scan(&permissionID); err != nil {
+			return nil, err
+		}
+
+		permissions = append(permissions, permissionID)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return permissions, nil
+}
+
+// FetchPermissionMaskByUser loads all permission IDs of a user and
+// aggregates them into a single numeric bitmask.
+//
+// Example:
+// If the user has permissions [1, 4], the final mask will be:
+//
+//	1 | 4 = 5
+//
+// This mask is the value that should be stored in the JWT token.
+func (r *UsersRepository) FetchPermissionMaskByUser(userID uint64) (uint64, error) {
+	permissionIDs, err := r.FetchPermissionIDsByUser(userID)
 	if err != nil {
 		return 0, err
 	}
-	defer userStmt.Close()
 
-	userResult, err := userStmt.Exec(
-		addressID,
+	return authentication.BuildPermissionMask(permissionIDs), nil
+}
+
+// FetchByEmailWithPermissionMask searches for a user by email and also
+// loads the aggregated permission mask.
+//
+// This helper is useful for authentication flows where the application needs
+// both the user base data and the permission mask to generate the JWT token.
+func (r *UsersRepository) FetchByEmailWithPermissionMask(email string) (models.User, uint64, error) {
+	user, err := r.FetchByEmail(email)
+	if err != nil {
+		return models.User{}, 0, err
+	}
+
+	permissionMask, err := r.FetchPermissionMaskByUser(user.ID)
+	if err != nil {
+		return models.User{}, 0, err
+	}
+
+	return user, permissionMask, nil
+}
+
+// Insert creates a new user record in the database.
+//
+// This function inserts only the user base record. Permission assignments
+// must be handled separately through the relation table "usuarios_permissoes".
+// Insert creates a new user record in the database.
+//
+// This function inserts only the user base record. Permission assignments
+// must be handled separately through the relation table "usuarios_permissoes".
+func (r *UsersRepository) Insert(user models.User) (uint64, error) {
+	query := `
+		INSERT INTO treehousedb.usuarios (
+			senha,
+			nome,
+			email,
+			cpf,
+			rg,
+			telefone,
+			ativo,
+			nascimento
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := r.db.Exec(
+		query,
 		user.Senha,
 		user.Nome,
 		user.Email,
-		nullIfEmpty(user.CPF),
-		nullIfEmpty(user.RG),
-		nullIfEmpty(user.Telefone),
+		user.CPF,
+		user.RG,
+		user.Telefone,
 		user.Ativo,
 		user.Nascimento,
 	)
@@ -96,69 +233,198 @@ func (u Users) Create(user models.User) (uint64, error) {
 		return 0, err
 	}
 
-	userID, err := userResult.LastInsertId()
+	insertedID, err := result.LastInsertId()
 	if err != nil {
 		return 0, err
 	}
 
-	if len(user.Permissoes) > 0 {
-		permQuery := `
-			INSERT INTO treehousedb.usuarios_permissoes (
-				id_usuario,
-				id_permissao
-			) VALUES (?, ?)`
-
-		permStmt, err := tx.Prepare(permQuery)
-		if err != nil {
-			return 0, err
-		}
-		defer permStmt.Close()
-
-		for _, permissao := range user.Permissoes {
-			if permissao.ID == 0 {
-				return 0, fmt.Errorf("permissão inválida")
-			}
-
-			if _, err = permStmt.Exec(userID, permissao.ID); err != nil {
-				return 0, err
-			}
-		}
-	}
-
-	if err = tx.Commit(); err != nil {
-		return 0, err
-	}
-
-	return uint64(userID), nil
+	return uint64(insertedID), nil
 }
 
-func (u Users) FetchAllUsers(nome string) ([]models.User, error) {
+// Update updates the user base data.
+//
+// Permission assignments are not updated here because they are stored in a
+// separate many-to-many relation table.
+func (r *UsersRepository) Update(id uint64, user models.User) error {
 	query := `
-		SELECT
-			u.id,
-			u.id_endereco,
-			u.nome,
-			u.email,
-			u.cpf,
-			u.rg,
-			u.telefone,
-			u.ativo,
-			u.nascimento,
-			u.created_at,
-			u.updated_at
-		FROM treehousedb.usuarios u`
+		UPDATE treehousedb.usuarios
+		SET
+			id_endereco = ?,
+			nome = ?,
+			email = ?,
+			cpf = ?,
+			rg = ?,
+			telefone = ?,
+			ativo = ?,
+			nascimento = ?,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`
 
-	var rows *sql.Rows
-	var err error
-
-	if nome != "" {
-		query += ` WHERE LOWER(u.nome) LIKE ? ORDER BY u.nome ASC`
-		rows, err = u.db.Query(query, "%"+nome+"%")
-	} else {
-		query += ` ORDER BY u.nome ASC`
-		rows, err = u.db.Query(query)
+	result, err := r.db.Exec(
+		query,
+		user.IDEndereco,
+		user.Nome,
+		user.Email,
+		user.CPF,
+		user.RG,
+		user.Telefone,
+		user.Ativo,
+		user.Nascimento,
+		id,
+	)
+	if err != nil {
+		return err
 	}
 
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("nenhum user encontrado com id %d", id)
+	}
+
+	return nil
+}
+
+// UpdatePassword updates only the user's password hash.
+func (r *UsersRepository) UpdatePassword(id uint64, passwordHash string) error {
+	query := `
+		UPDATE treehousedb.usuarios
+		SET
+			senha = ?,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`
+
+	result, err := r.db.Exec(query, passwordHash, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("nenhum user encontrado com id %d", id)
+	}
+
+	return nil
+}
+
+// Delete removes a user from the database.
+//
+// Since "usuarios_permissoes" uses ON DELETE CASCADE for the user foreign key,
+// the related permission assignments are automatically removed by the database.
+func (r *UsersRepository) Delete(id uint64) error {
+	query := `DELETE FROM treehousedb.usuarios WHERE id = ?`
+
+	result, err := r.db.Exec(query, id)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+
+	if rowsAffected == 0 {
+		return fmt.Errorf("nenhum user encontrado com id %d", id)
+	}
+
+	return nil
+}
+
+// ReplacePermissionsByUser replaces all permissions assigned to a user.
+//
+// This operation removes the current relations from "usuarios_permissoes" and
+// inserts the new set of permission IDs.
+//
+// IMPORTANT:
+// The provided permission IDs must already exist in the "permissoes" table and
+// must follow the bit flag strategy adopted by the project.
+func (r *UsersRepository) ReplacePermissionsByUser(userID uint64, permissionIDs []uint64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	deleteQuery := `DELETE FROM treehousedb.usuarios_permissoes WHERE id_usuario = ?`
+	if _, err = tx.Exec(deleteQuery, userID); err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+
+	if len(permissionIDs) == 0 {
+		return tx.Commit()
+	}
+
+	insertQuery := `
+		INSERT INTO treehousedb.usuarios_permissoes (id_usuario, id_permissao)
+		VALUES (?, ?)
+	`
+
+	stmt, err := tx.Prepare(insertQuery)
+	if err != nil {
+		_ = tx.Rollback()
+		return err
+	}
+	defer stmt.Close()
+
+	for _, permissionID := range permissionIDs {
+		if _, err = stmt.Exec(userID, permissionID); err != nil {
+			_ = tx.Rollback()
+			return err
+		}
+	}
+
+	return tx.Commit()
+}
+
+// FetchAllUsers returns a list of users optionally filtered by name.
+//
+// The "nome" parameter is optional. If provided, the query will perform
+// a case-insensitive search using a LIKE clause.
+func (r *UsersRepository) FetchAllUsers(nome string) ([]models.User, error) {
+	query := `
+		SELECT
+			id,
+			id_endereco,
+			senha,
+			nome,
+			email,
+			cpf,
+			rg,
+			telefone,
+			ativo,
+			nascimento,
+			created_at,
+			updated_at
+		FROM treehousedb.usuarios
+	`
+
+	var args []interface{}
+
+	if nome != "" {
+		query += " WHERE LOWER(nome) LIKE ?"
+		args = append(args, "%"+nome+"%")
+	}
+
+	query += " ORDER BY nome"
+
+	rows, err := r.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -168,9 +434,11 @@ func (u Users) FetchAllUsers(nome string) ([]models.User, error) {
 
 	for rows.Next() {
 		var user models.User
+
 		err = rows.Scan(
 			&user.ID,
 			&user.IDEndereco,
+			&user.Senha,
 			&user.Nome,
 			&user.Email,
 			&user.CPF,
@@ -181,132 +449,20 @@ func (u Users) FetchAllUsers(nome string) ([]models.User, error) {
 			&user.CreatedAt,
 			&user.UpdatedAt,
 		)
+
 		if err != nil {
 			return nil, err
 		}
 
+		// Never expose password hashes in API responses
+		user.Senha = ""
+
 		users = append(users, user)
 	}
 
-	return users, nil
-}
-
-func (u Users) FetchByID(id uint64) (models.User, error) {
-	query := `
-		SELECT
-			u.id,
-			u.id_endereco,
-			u.nome,
-			u.email,
-			u.cpf,
-			u.rg,
-			u.telefone,
-			u.ativo,
-			u.nascimento,
-			u.created_at,
-			u.updated_at,
-			e.id,
-			e.rua,
-			e.numero,
-			e.bairro,
-			e.cidade,
-			e.estado,
-			e.pais,
-			e.complemento,
-			e.created_at,
-			e.updated_at
-		FROM treehousedb.usuarios u
-		INNER JOIN treehousedb.enderecos e ON e.id = u.id_endereco
-		WHERE u.id = ?`
-
-	var user models.User
-
-	err := u.db.QueryRow(query, id).Scan(
-		&user.ID,
-		&user.IDEndereco,
-		&user.Nome,
-		&user.Email,
-		&user.CPF,
-		&user.RG,
-		&user.Telefone,
-		&user.Ativo,
-		&user.Nascimento,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-		&user.Endereco.ID,
-		&user.Endereco.Rua,
-		&user.Endereco.Numero,
-		&user.Endereco.Bairro,
-		&user.Endereco.Cidade,
-		&user.Endereco.Estado,
-		&user.Endereco.Pais,
-		&user.Endereco.Complemento,
-		&user.Endereco.CreatedAt,
-		&user.Endereco.UpdatedAt,
-	)
-	if err != nil {
-		return models.User{}, err
-	}
-
-	permissoes, err := u.fetchPermissionsByUserID(id)
-	if err != nil {
-		return models.User{}, err
-	}
-	user.Permissoes = permissoes
-
-	return user, nil
-}
-
-func (u Users) FetchByEmail(email string) (models.User, error) {
-	query := `
-		SELECT
-			id,
-			senha
-		FROM treehousedb.usuarios
-		WHERE email = ?`
-
-	var user models.User
-
-	err := u.db.QueryRow(query, email).Scan(&user.ID, &user.Senha)
-	if err != nil {
-		return models.User{}, err
-	}
-
-	return user, nil
-}
-
-func (u Users) fetchPermissionsByUserID(userID uint64) ([]models.Permission, error) {
-	query := `
-		SELECT
-			p.id,
-			p.nome
-		FROM treehousedb.usuarios_permissoes up
-		INNER JOIN treehousedb.permissoes p ON p.id = up.id_permissao
-		WHERE up.id_usuario = ?
-		ORDER BY p.id`
-
-	rows, err := u.db.Query(query, userID)
-	if err != nil {
+	if err = rows.Err(); err != nil {
 		return nil, err
 	}
-	defer rows.Close()
 
-	var permissoes []models.Permission
-
-	for rows.Next() {
-		var p models.Permission
-		if err = rows.Scan(&p.ID, &p.Nome); err != nil {
-			return nil, err
-		}
-		permissoes = append(permissoes, p)
-	}
-
-	return permissoes, nil
-}
-
-func nullIfEmpty(value string) interface{} {
-	if value == "" {
-		return nil
-	}
-	return value
+	return users, nil
 }

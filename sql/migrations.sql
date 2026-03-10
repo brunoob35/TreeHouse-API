@@ -9,11 +9,33 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- =========================================================
+-- OBSERVACOES IMPORTANTES
+-- =========================================================
+--
+-- 1) As permissoes continuam relacionais no banco por meio das
+--    tabelas "permissoes" e "usuarios_permissoes".
+--
+-- 2) Na aplicacao, as permissoes serao agregadas em uma mascara
+--    numerica (bit flags) para serem gravadas no token JWT.
+--
+-- 3) Por isso, os IDs da tabela "permissoes" DEVEM ser potencias
+--    de 2 e DEVEM permanecer estaveis ao longo do tempo.
+--
+--    Exemplos validos:
+--      1, 2, 4, 8, 16, 32, 64...
+--
+--    Exemplos invalidos para essa estrategia:
+--      3, 5, 6, 10, 20...
+--
+-- 4) Foi utilizado BIGINT UNSIGNED em permissoes.id para manter
+--    compatibilidade com o uso de uint64 no backend.
+--
+-- =========================================================
 -- TABELAS PRINCIPAIS
 -- =========================================================
 
 CREATE TABLE permissoes (
-                            id INT UNSIGNED NOT NULL,
+                            id BIGINT UNSIGNED NOT NULL,
                             nome VARCHAR(50) NOT NULL,
                             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -41,7 +63,7 @@ CREATE TABLE enderecos (
 
 CREATE TABLE usuarios (
                           id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                          id_endereco INT UNSIGNED NOT NULL,
+                          id_endereco INT UNSIGNED NULL,
                           senha VARCHAR(255) NOT NULL,
                           nome VARCHAR(150) NOT NULL,
                           email VARCHAR(150) NOT NULL,
@@ -70,7 +92,7 @@ CREATE TABLE usuarios (
 
 CREATE TABLE usuarios_permissoes (
                                      id_usuario INT UNSIGNED NOT NULL,
-                                     id_permissao INT UNSIGNED NOT NULL,
+                                     id_permissao BIGINT UNSIGNED NOT NULL,
                                      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                                      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -370,9 +392,12 @@ SET FOREIGN_KEY_CHECKS = 1;
 -- DADOS INICIAIS
 -- =========================================================
 
+-- IMPORTANTE:
+-- Os IDs abaixo sao bit flags e devem continuar sendo potencias de 2.
+
 INSERT INTO permissoes (id, nome) VALUES
-                                      (10, 'gestao'),
-                                      (20, 'professor');
+                                      (1, 'gestao'),
+                                      (2, 'professor');
 
 INSERT INTO aulas_status (id, nome_status) VALUES
                                                (1, 'pendente'),

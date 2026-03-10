@@ -10,7 +10,6 @@ import (
 	"github.com/brunoob35/TreeHouse-API/src/utils"
 )
 
-// User represents any user in the sistem
 type Address struct {
 	ID          uint64    `json:"id,omitempty"`
 	Rua         string    `json:"rua"`
@@ -31,7 +30,7 @@ type Permission struct {
 
 type User struct {
 	ID         uint64       `json:"id,omitempty"`
-	IDEndereco uint64       `json:"id_endereco,omitempty"`
+	IDEndereco *uint64      `json:"id_endereco,omitempty"`
 	Nome       string       `json:"nome"`
 	Email      string       `json:"email"`
 	Senha      string       `json:"senha,omitempty"`
@@ -42,24 +41,24 @@ type User struct {
 	Nascimento *time.Time   `json:"nascimento,omitempty"`
 	CreatedAt  time.Time    `json:"created_at,omitempty"`
 	UpdatedAt  time.Time    `json:"updated_at,omitempty"`
-	Endereco   Address      `json:"endereco"`
+	Endereco   *Address     `json:"endereco,omitempty"`
 	Permissoes []Permission `json:"permissoes,omitempty"`
 }
 
-// Prepare Treats user info and validates it
+// Prepare treats user info and validates it.
 func (user *User) Prepare(step string) error {
-	if err := user.validate(step); err != nil {
+	if err := user.format(step); err != nil {
 		return err
 	}
 
-	if err := user.format(step); err != nil {
+	if err := user.validate(step); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// validate Prevents the system to save any blank space or invalid info.
+// validate prevents the system from saving invalid info.
 func (user *User) validate(step string) error {
 	if user.Nome == "" {
 		return errors.New("o nome é obrigatório")
@@ -83,26 +82,6 @@ func (user *User) validate(step string) error {
 		return errors.New("a senha é obrigatória")
 	}
 
-	if user.Endereco.Rua == "" {
-		return errors.New("a rua do endereço é obrigatória")
-	}
-
-	if user.Endereco.Numero == "" {
-		return errors.New("o número do endereço é obrigatório")
-	}
-
-	if user.Endereco.Bairro == "" {
-		return errors.New("o bairro do endereço é obrigatório")
-	}
-
-	if user.Endereco.Cidade == "" {
-		return errors.New("a cidade do endereço é obrigatória")
-	}
-
-	if user.Endereco.Estado == "" {
-		return errors.New("o estado do endereço é obrigatório")
-	}
-
 	return nil
 }
 
@@ -113,16 +92,18 @@ func (user *User) format(step string) error {
 	user.RG = strings.TrimSpace(user.RG)
 	user.Telefone = strings.TrimSpace(user.Telefone)
 
-	user.Endereco.Rua = strings.TrimSpace(user.Endereco.Rua)
-	user.Endereco.Numero = strings.TrimSpace(user.Endereco.Numero)
-	user.Endereco.Bairro = strings.TrimSpace(user.Endereco.Bairro)
-	user.Endereco.Cidade = strings.TrimSpace(user.Endereco.Cidade)
-	user.Endereco.Estado = strings.TrimSpace(user.Endereco.Estado)
-	user.Endereco.Pais = strings.TrimSpace(user.Endereco.Pais)
-	user.Endereco.Complemento = strings.TrimSpace(user.Endereco.Complemento)
+	if user.Endereco != nil {
+		user.Endereco.Rua = strings.TrimSpace(user.Endereco.Rua)
+		user.Endereco.Numero = strings.TrimSpace(user.Endereco.Numero)
+		user.Endereco.Bairro = strings.TrimSpace(user.Endereco.Bairro)
+		user.Endereco.Cidade = strings.TrimSpace(user.Endereco.Cidade)
+		user.Endereco.Estado = strings.TrimSpace(user.Endereco.Estado)
+		user.Endereco.Pais = strings.TrimSpace(user.Endereco.Pais)
+		user.Endereco.Complemento = strings.TrimSpace(user.Endereco.Complemento)
 
-	if user.Endereco.Pais == "" {
-		user.Endereco.Pais = "Brasil"
+		if user.Endereco.Pais == "" {
+			user.Endereco.Pais = "Brasil"
+		}
 	}
 
 	if step == "create" && user.Senha != "" {

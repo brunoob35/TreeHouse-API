@@ -13,7 +13,16 @@ import (
 	"github.com/brunoob35/TreeHouse-API/src/security"
 )
 
-// Login is responsible for validating user credentials
+// Login is responsible for validating user credentials.
+//
+// This flow performs the following steps:
+//   - reads the request body
+//   - parses the incoming credentials
+//   - loads the user by email
+//   - validates the provided password
+//   - loads the user's permission IDs from the database
+//   - aggregates those permissions into a numeric bitmask
+//   - generates a JWT token containing the user ID and permission mask
 func Login(w http.ResponseWriter, r *http.Request) {
 	bodyRequest, err := io.ReadAll(r.Body)
 	if err != nil {
@@ -34,26 +43,35 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repository.UsersNewRepo(db)
+	repo := repositories.NewUsersRepository(db)
+
+	// FetchByEmail loads the user base data required for authentication.
 	userFound, err := repo.FetchByEmail(user.Email)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 
+	// ValidatePassword compares the stored password hash with the plain password
+	// received in the login request.
 	if err = security.ValidatePassword(userFound.Senha, user.Senha); err != nil {
 		responses.Err(w, http.StatusUnauthorized, err)
 		return
 	}
 
-	token, err := authentication.GenerateToken(userFound.ID)
+	// FetchPermissionMaskByUserID loads the user's permission IDs from the
+	// relationship table and aggregates them into a single numeric bitmask.
+	permissionMask, err := repo.FetchPermissionMaskByUser(userFound.ID)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	//userID := strconv.FormatUint(userFound.ID, 10)
-	//
-	//responses.JSON(w, http.StatusOK, models.DadosAutenticacao{ID: usuarioID, Token: token})
+	token, err := authentication.GenerateToken(userFound.ID, permissionMask)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
 	w.Write([]byte(token))
 }
