@@ -3,11 +3,12 @@ package authentication
 import (
 	"errors"
 	"fmt"
-	"github.com/brunoob35/TreeHouse-API/src/config"
-	jwt "github.com/dgrijalva/jwt-go"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/brunoob35/TreeHouse-API/src/config"
+	jwt "github.com/dgrijalva/jwt-go"
 )
 
 func GenerateToken(userID uint64) (string, error) {
@@ -18,7 +19,6 @@ func GenerateToken(userID uint64) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, permissions)
 	return token.SignedString(config.SecretKey)
-
 }
 
 // ValidateToken receives the token alone, not the object containing it.

@@ -1,9 +1,10 @@
 package routes
 
 import (
+	"net/http"
+
 	"github.com/brunoob35/TreeHouse-API/src/middlewares"
 	"github.com/gorilla/mux"
-	"net/http"
 )
 
 type Routes struct {
@@ -17,9 +18,9 @@ type Routes struct {
 func Config(r *mux.Router) *mux.Router {
 	routes := userRoutes
 	routes = append(routes, loginRoutes)
-	routes = append(routes, studentsRoutes...)
-	routes = append(routes, classesRoutes...)
-	routes = append(routes, lessonsRoutes...)
+	//routes = append(routes, studentsRoutes...)
+	//routes = append(routes, classesRoutes...)
+	//routes = append(routes, lessonsRoutes...)
 
 	for _, route := range routes {
 

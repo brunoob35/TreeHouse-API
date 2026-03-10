@@ -2,14 +2,15 @@ package controllers
 
 import (
 	"encoding/json"
+	"io"
+	"net/http"
+
 	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
 	"github.com/brunoob35/TreeHouse-API/src/responses"
 	"github.com/brunoob35/TreeHouse-API/src/security"
-	"io"
-	"net/http"
 )
 
 // Login is responsible for validating user credentials
@@ -40,7 +41,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = security.ValidatePassword(userFound.Password, user.Password); err != nil {
+	if err = security.ValidatePassword(userFound.Senha, user.Senha); err != nil {
 		responses.Err(w, http.StatusUnauthorized, err)
 		return
 	}

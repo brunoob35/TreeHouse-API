@@ -1,25 +1,23 @@
 package config
 
 import (
-	"github.com/go-sql-driver/mysql"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"strconv"
+
+	"github.com/go-sql-driver/mysql"
+	"github.com/joho/godotenv"
 )
 
 var (
-	//ConncetionString = ""
-	Port = 0
-	Cfg  = mysql.Config{}
-	// SecretKey is the key to sign the webtoken
+	Port      = 0
+	Cfg       = mysql.Config{}
 	SecretKey []byte
 )
 
 // LoadEnv loads the env variable
 func LoadEnv() {
 	var err error
-	// old .env path "src/config/enviroment/enviroment.env"
 	if err = godotenv.Load(".env"); err != nil {
 
 		log.Fatal("entrou aqui, ", err)
