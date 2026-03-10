@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/go-sql-driver/mysql"
 	"github.com/joho/godotenv"
@@ -19,7 +20,6 @@ var (
 func LoadEnv() {
 	var err error
 	if err = godotenv.Load(".env"); err != nil {
-
 		log.Fatal("entrou aqui, ", err)
 	}
 	log.Println("Carregou env")
@@ -30,11 +30,13 @@ func LoadEnv() {
 	}
 
 	Cfg = mysql.Config{
-		User:   os.Getenv("DB_USER"),
-		Passwd: os.Getenv("DB_PASSWORD"),
-		Net:    "tcp",
-		Addr:   os.Getenv("DB_ADDR"),
-		DBName: os.Getenv("DB_DATABASE"),
+		User:      os.Getenv("DB_USER"),
+		Passwd:    os.Getenv("DB_PASSWORD"),
+		Net:       "tcp",
+		Addr:      os.Getenv("DB_ADDR"),
+		DBName:    os.Getenv("DB_DATABASE"),
+		ParseTime: true,
+		Loc:       time.Local,
 	}
 
 	SecretKey = []byte(os.Getenv("SECRET_KEY"))
