@@ -10,24 +10,6 @@ import (
 	"github.com/brunoob35/TreeHouse-API/src/utils"
 )
 
-type Address struct {
-	ID          uint64    `json:"id,omitempty"`
-	Rua         string    `json:"rua"`
-	Numero      string    `json:"numero"`
-	Bairro      string    `json:"bairro"`
-	Cidade      string    `json:"cidade"`
-	Estado      string    `json:"estado"`
-	Pais        string    `json:"pais,omitempty"`
-	Complemento string    `json:"complemento,omitempty"`
-	CreatedAt   time.Time `json:"created_at,omitempty"`
-	UpdatedAt   time.Time `json:"updated_at,omitempty"`
-}
-
-type Permission struct {
-	ID   uint64 `json:"id"`
-	Nome string `json:"nome,omitempty"`
-}
-
 type User struct {
 	ID         uint64       `json:"id,omitempty"`
 	IDEndereco *uint64      `json:"id_endereco,omitempty"`
@@ -43,6 +25,11 @@ type User struct {
 	UpdatedAt  time.Time    `json:"updated_at,omitempty"`
 	Endereco   *Address     `json:"endereco,omitempty"`
 	Permissoes []Permission `json:"permissoes,omitempty"`
+}
+
+type Permission struct {
+	ID   uint64 `json:"id"`
+	Nome string `json:"nome,omitempty"`
 }
 
 // Prepare treats user info and validates it.

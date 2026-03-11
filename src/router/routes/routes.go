@@ -74,7 +74,7 @@ func Config(r *mux.Router) *mux.Router {
 			handler = middlewares.Logger(handler)
 		}
 
-		r.HandleFunc(route.URI, handler).Methods(route.Method)
+		r.HandleFunc(route.URI, handler).Methods(route.Method, http.MethodOptions)
 	}
 
 	return r
