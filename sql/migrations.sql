@@ -389,25 +389,6 @@ CREATE TABLE logs_auditoria (
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- =========================================================
--- DADOS INICIAIS
--- =========================================================
-
--- IMPORTANTE:
--- Os IDs abaixo sao bit flags e devem continuar sendo potencias de 2.
-
-INSERT INTO permissoes (id, nome) VALUES
-                                      (1, 'gestao'),
-                                      (2, 'professor');
-
-INSERT INTO aulas_status (id, nome_status) VALUES
-                                               (1, 'pendente'),
-                                               (2, 'realizada'),
-                                               (3, 'cancelada'),
-                                               (4, 'remarcada'),
-                                               (5, 'pendente reagendamento'),
-                                               (6, 'indenizada');
-
--- =========================================================
 -- TRIGGERS
 -- =========================================================
 

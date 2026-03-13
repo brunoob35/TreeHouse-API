@@ -60,7 +60,6 @@ func Authorize(required ...authentication.Permission) func(http.HandlerFunc) htt
 
 // AuthorizeAll verifies whether the authenticated user has all permissions
 // required to access the route.
-//
 // This middleware also relies entirely on the JWT token and does not query
 // the database.
 func AuthorizeAll(required ...authentication.Permission) func(http.HandlerFunc) http.HandlerFunc {

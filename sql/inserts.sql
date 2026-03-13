@@ -1,111 +1,53 @@
-INSERT INTO
-    treehousedb.acessos_ids (acesso_nome)
-VALUES
-    ('Gerente Sistema'), ('Gerente Organização'), ('Professor'), ('Assistente Sistema');
+-- =========================================================
+-- INSERTS INICIAIS
+-- =========================================================
+
+INSERT INTO treehousedb.usuarios (senha, nome, email, ativo, cpf, rg)
+VALUES (
+           '$2a$10$6iGqzERlawUn1AnEOe49XOWHqYWe2M.4mES1h.dWraAv.KveQw1oy',
+           'Gestor Perfil',
+           'gestor@gestio.com',
+           TRUE,
+           19262973004,
+           273284101
+       );
+
+SET @gestor_id = LAST_INSERT_ID();
+
+INSERT INTO treehousedb.usuarios_permissoes (id_usuario, id_permissao)
+VALUES (@gestor_id, 1);
+
+INSERT INTO treehousedb.usuarios (senha, nome, email, ativo, cpf, rg)
+VALUES (
+           '$2a$10$2lT9uGk6h7dD4y3nE9bOAuq9dF8kL1aP2xC4fM9sN5vR7wT8yZ1Qa',
+           'Professor Demonstração',
+           'professor@gestio.com',
+           TRUE,
+           60396492088,
+           192078860
+       );
+
+SET @professor_id = LAST_INSERT_ID();
+
+INSERT INTO treehousedb.usuarios_permissoes (id_usuario, id_permissao)
+VALUES (@professor_id, 2);
 
 
-insert into
-    treehousedb.usuarios (nome_usuario, email_usuario, senha, id_acesso, id_funcao, cpf, rg, celular, data_nascimento)
-VALUES
-    ('Bruno Quoos', 'bruno@treehouse.com', '123456789', 1, 0, '0000000000', '00000000000', '43996630496', '2023-12-06');
+-- IMPORTANTE:
+-- Os IDs abaixo sao bit flags e devem continuar sendo potencias de 2.
+INSERT INTO treehousedb.permissoes (id, nome) VALUES
+                                      (1, 'gestao'),
+                                      (2, 'professor'),
+                                      (4, 'gestao master');
 
+INSERT INTO treehousedb.aulas_status (id, nome_status) VALUES
+                                               (1, 'pendente'),
+                                               (2, 'realizada'),
+                                               (3, 'cancelada'),
+                                               (4, 'remarcada'),
+                                               (5, 'pendente reagendamento'),
+                                               (6, 'indenizada');
 
-INSERT INTO treehousedb.profesoras (nome) VALUES
-                                              ('Bruno Schmaiske Quoos'),
-                                              ('Luana Rodrigues Quoos'),
-                                              ('Liohana Gaspar da Silva'),
-                                              ('Jéssica Andressa da Costa Machado'),
-                                              ('Raphaela Mykytzczuk De Matos'),
-                                              ('Yasmin Grummt Naddaf'),
-                                              ('Maria Fernanda'),
-                                              ('Emanuelle Maciel'),
-                                              ('Luana Maria Figueiredo Salviano Pallaro'),
-                                              ('Ana Luiza Egg');
-
-INSERT INTO treehousedb.turmas (nome_turma) VALUES
-                                    ('teste 1'),
-                                    ('teste 2'),
-                                    ('teste 3'),
-                                    ('teste 4'),
-                                    ('teste 5'),
-                                    ('teste 6'),
-                                    ('teste 7'),
-                                    ('teste 8'),
-                                    ('teste 9'),
-                                    ('teste 10');
-
-
-INSERT INTO treehousedb.alunos (nome) VALUES
-                              ('TreeHouse'),
-                              ('Max Roda Lopes'),
-                              ('Miguel Zipf Fabri'),
-                              ('Clara Zipf Fabri'),
-                              ('Manuela Fontoura De Souza'),
-                              ('Pedro Carneiro Akiyama'),
-                              ('Mario Grynbaum & Rodrigo Grynbaum'),
-                              ('Rodrigo Grynbaum'),
-                              ('Gabriela De Pauli Kinaki'),
-                              ('Rafael Dall Acqua Winter'),
-                              ('Valentina paulino Tareszkiewicz'),
-                              ('Paola Carneiro Akiyama'),
-                              ('Helena Longo De Camargo'),
-                              ('Luigi Scheinkman'),
-                              ('Luisa De Pauli Kinaki'),
-                              ('Daniel Longo De Camargo'),
-                              ('Leandro Scheinkman De Souza'),
-                              ('Martina Pozzobon Lara dos Santos'),
-                              ('Sophia Fernandes Rodrigues'),
-                              ('Maria Luísa Komuchena Malinoski'),
-                              ('Maria Cecília Komuchena Malinoski'),
-                              ('Maria Teresa Komuchena Malinoski'),
-                              ('Bernardo Amin Bacila'),
-                              ('Leticia Belich'),
-                              ('Luciane & Ane'),
-                              ('Violeta Chalegre Sens'),
-                              ('Matheus César Chalegre Sens'),
-                              ('Dhara Husseini'),
-                              ('Lorenzo Vecchi Pinheiro'),
-                              ('Estela do Nascimento Cardoso'),
-                              ('Helena Navachi Paúra'),
-                              ('Luca Gauer Marchini & Bianca Gauer Marchini'),
-                              ('Heloisa da Silveira Colares'),
-                              ('Felipe da Silveira Colares'),
-                              ('Antonella Gonçalves Machado'),
-                              ('Vicenzo Sarolli Busato'),
-                              ('Kambalhota Educação Infantil'),
-                              ('Julia Weinert de Andrade'),
-                              ('Escola Israelita'),
-                              ('Vila Sofia'),
-                              ('Francisco Paulino Tareszkiewicz'),
-                              ('Diana dos Santos Pellanda'),
-                              ('Mariana Zortea Tauchmann'),
-                              ('Fernanda Zortea Tauchmann'),
-                              ('Ruan Rossi'),
-                              ('Ísis Passere Zamblauskas'),
-                              ('Angelina Sarolli Busato'),
-                              ('Lindsey Helena Ferreira Cordeiro'),
-                              ('Beatriz Kempinski amorim'),
-                              ('Sophia França Costa da Silva'),
-                              ('Nathan Boiko'),
-                              ('Thaís, Paula  e Laura Seleme de Campos'),
-                              ('Davi de Mello Norte'),
-                              ('Luigi cima'),
-                              ('Laura Dubas Matocheck'),
-                              ('Alicia Ferreira Setim'),
-                              ('Valentina Sperandio Daleffe'),
-                              ('Flávia Bomfim Milek'),
-                              ('Escola Kids'),
-                              ('Daniel ruggi fatiga'),
-                              ('Beatriz ruggi fatiga'),
-                              ('Arthur fisbein Katz'),
-                              ('Gabriel Favaretto ruppel'),
-                              ('Vítor Cristofolini Meretika'),
-                              ('Valentina Fressato Esteves'),
-                              ('Maitê Monteiro Casagrande'),
-                              ('Benjamin Monteiro Casagrande'),
-                              ('Pedro Thoaldo Canteri'),
-                              ('Ayla Ferraz Novak'),
-                              ('João Paulo Mendes Lima');
 
 
 INSERT INTO treehousedb.alunos_turmas (id_aluno, id_turma) VALUES

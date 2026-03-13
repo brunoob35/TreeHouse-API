@@ -17,28 +17,6 @@ type Routes struct {
 	RequireAll  bool
 }
 
-//	How to declarre a new route
-//	New public route
-//	var loginRoutes = []Routes{
-//		{
-//			URI:      "/login",
-//			Method:   http.MethodPost,
-//			Function: controllers.Login,
-//			Auth:     false,
-//		},
-//	}
-//	Route with specific permissions
-//	{
-//	URI:      "/aulas",
-//	Method:   http.MethodGet,
-//	Function: controllers.ListarAulas,
-//	Auth:     true,
-//	Permissions: []authentication.Permission{
-//		authentication.PermGestao,
-//		authentication.PermProfessor,
-//		},
-//	}
-
 // Config adds all routes to the router.
 //
 // Route protection flow:
@@ -50,9 +28,8 @@ type Routes struct {
 func Config(r *mux.Router) *mux.Router {
 	routes := userRoutes
 	routes = append(routes, loginRoutes...)
-	// routes = append(routes, studentsRoutes...)
-	// routes = append(routes, classesRoutes...)
-	// routes = append(routes, lessonsRoutes...)
+	routes = append(routes, studentsRoutes...)
+	routes = append(routes, professorsRoutes...)
 
 	for _, route := range routes {
 		handler := route.Function

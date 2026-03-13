@@ -20,7 +20,6 @@ func NewUsersRepository(db *sql.DB) *UsersRepository {
 }
 
 // FetchByID searches for a user by its ID.
-//
 // It returns the user base data without loading permission relations.
 // Permissions are intentionally loaded separately because the application now
 // aggregates them into a numeric bitmask for authentication and authorization.
@@ -71,7 +70,6 @@ func (r *UsersRepository) FetchByID(id uint64) (models.User, error) {
 }
 
 // FetchByEmail searches for a user by email.
-//
 // This function is usually used during the login flow before validating
 // the password and generating the JWT token.
 func (r *UsersRepository) FetchByEmail(email string) (models.User, error) {
@@ -121,8 +119,6 @@ func (r *UsersRepository) FetchByEmail(email string) (models.User, error) {
 }
 
 // FetchPermissionIDsByUser returns all permission IDs assigned to a user.
-//
-// IMPORTANT:
 // The permission IDs stored in the database must already be valid bit flags
 // (1, 2, 4, 8, 16, ...). Because of that, they can later be aggregated into
 // a single numeric mask using the bitwise OR operator.
@@ -161,7 +157,6 @@ func (r *UsersRepository) FetchPermissionIDsByUser(userID uint64) ([]uint64, err
 
 // FetchPermissionMaskByUser loads all permission IDs of a user and
 // aggregates them into a single numeric bitmask.
-//
 // Example:
 // If the user has permissions [1, 4], the final mask will be:
 //
@@ -177,31 +172,7 @@ func (r *UsersRepository) FetchPermissionMaskByUser(userID uint64) (uint64, erro
 	return authentication.BuildPermissionMask(permissionIDs), nil
 }
 
-// FetchByEmailWithPermissionMask searches for a user by email and also
-// loads the aggregated permission mask.
-//
-// This helper is useful for authentication flows where the application needs
-// both the user base data and the permission mask to generate the JWT token.
-func (r *UsersRepository) FetchByEmailWithPermissionMask(email string) (models.User, uint64, error) {
-	user, err := r.FetchByEmail(email)
-	if err != nil {
-		return models.User{}, 0, err
-	}
-
-	permissionMask, err := r.FetchPermissionMaskByUser(user.ID)
-	if err != nil {
-		return models.User{}, 0, err
-	}
-
-	return user, permissionMask, nil
-}
-
 // Insert creates a new user record in the database.
-//
-// This function inserts only the user base record. Permission assignments
-// must be handled separately through the relation table "usuarios_permissoes".
-// Insert creates a new user record in the database.
-//
 // This function inserts only the user base record. Permission assignments
 // must be handled separately through the relation table "usuarios_permissoes".
 func (r *UsersRepository) Insert(user models.User) (uint64, error) {
@@ -241,8 +212,77 @@ func (r *UsersRepository) Insert(user models.User) (uint64, error) {
 	return uint64(insertedID), nil
 }
 
+// InsertWithPermission creates a new user and associates a permission
+// in the same transaction.
+func (r *UsersRepository) InsertWithPermission(user models.User, permissionID uint64) (uint64, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		if p := recover(); p != nil {
+			_ = tx.Rollback()
+			panic(p)
+		}
+	}()
+
+	insertUserQuery := `
+		INSERT INTO treehousedb.usuarios (
+			senha,
+			nome,
+			email,
+			cpf,
+			rg,
+			telefone,
+			ativo,
+			nascimento
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := tx.Exec(
+		insertUserQuery,
+		user.Senha,
+		user.Nome,
+		user.Email,
+		user.CPF,
+		user.RG,
+		user.Telefone,
+		user.Ativo,
+		user.Nascimento,
+	)
+	if err != nil {
+		_ = tx.Rollback()
+		return 0, err
+	}
+
+	insertedID, err := result.LastInsertId()
+	if err != nil {
+		_ = tx.Rollback()
+		return 0, err
+	}
+
+	insertPermissionQuery := `
+		INSERT INTO treehousedb.usuarios_permissoes (
+			id_usuario,
+			id_permissao
+		) VALUES (?, ?)
+	`
+
+	_, err = tx.Exec(insertPermissionQuery, insertedID, permissionID)
+	if err != nil {
+		_ = tx.Rollback()
+		return 0, fmt.Errorf("usuario criado, mas falha ao associar permissao: %w", err)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, err
+	}
+
+	return uint64(insertedID), nil
+}
+
 // Update updates the user base data.
-//
 // Permission assignments are not updated here because they are stored in a
 // separate many-to-many relation table.
 func (r *UsersRepository) Update(id uint64, user models.User) error {
@@ -290,6 +330,7 @@ func (r *UsersRepository) Update(id uint64, user models.User) error {
 }
 
 // UpdatePassword updates only the user's password hash.
+// todo: ainda não utilizada, mas vamos na troca de senha!
 func (r *UsersRepository) UpdatePassword(id uint64, passwordHash string) error {
 	query := `
 		UPDATE treehousedb.usuarios
@@ -316,12 +357,17 @@ func (r *UsersRepository) UpdatePassword(id uint64, passwordHash string) error {
 	return nil
 }
 
-// Delete removes a user from the database.
-//
-// Since "usuarios_permissoes" uses ON DELETE CASCADE for the user foreign key,
-// the related permission assignments are automatically removed by the database.
+// Delete performs a soft delete on a user.
+// Instead of removing the row from the database,
+// this operation sets the "ativo" field to false.
 func (r *UsersRepository) Delete(id uint64) error {
-	query := `DELETE FROM treehousedb.usuarios WHERE id = ?`
+	query := `
+		UPDATE treehousedb.usuarios
+		SET
+			ativo = FALSE,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`
 
 	result, err := r.db.Exec(query, id)
 	if err != nil {
@@ -340,61 +386,7 @@ func (r *UsersRepository) Delete(id uint64) error {
 	return nil
 }
 
-// ReplacePermissionsByUser replaces all permissions assigned to a user.
-//
-// This operation removes the current relations from "usuarios_permissoes" and
-// inserts the new set of permission IDs.
-//
-// IMPORTANT:
-// The provided permission IDs must already exist in the "permissoes" table and
-// must follow the bit flag strategy adopted by the project.
-func (r *UsersRepository) ReplacePermissionsByUser(userID uint64, permissionIDs []uint64) error {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return err
-	}
-
-	defer func() {
-		if p := recover(); p != nil {
-			_ = tx.Rollback()
-			panic(p)
-		}
-	}()
-
-	deleteQuery := `DELETE FROM treehousedb.usuarios_permissoes WHERE id_usuario = ?`
-	if _, err = tx.Exec(deleteQuery, userID); err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-
-	if len(permissionIDs) == 0 {
-		return tx.Commit()
-	}
-
-	insertQuery := `
-		INSERT INTO treehousedb.usuarios_permissoes (id_usuario, id_permissao)
-		VALUES (?, ?)
-	`
-
-	stmt, err := tx.Prepare(insertQuery)
-	if err != nil {
-		_ = tx.Rollback()
-		return err
-	}
-	defer stmt.Close()
-
-	for _, permissionID := range permissionIDs {
-		if _, err = stmt.Exec(userID, permissionID); err != nil {
-			_ = tx.Rollback()
-			return err
-		}
-	}
-
-	return tx.Commit()
-}
-
 // FetchAllUsers returns a list of users optionally filtered by name.
-//
 // The "nome" parameter is optional. If provided, the query will perform
 // a case-insensitive search using a LIKE clause.
 func (r *UsersRepository) FetchAllUsers(nome string) ([]models.User, error) {
@@ -457,6 +449,218 @@ func (r *UsersRepository) FetchAllUsers(nome string) ([]models.User, error) {
 		// Never expose password hashes in API responses
 		user.Senha = ""
 
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// FetchAllActiveUsers returns all active users optionally filtered by name.
+func (r *UsersRepository) FetchAllActiveUsers(nome string) ([]models.User, error) {
+	query := `
+		SELECT
+			id,
+			id_endereco,
+			senha,
+			nome,
+			email,
+			cpf,
+			rg,
+			telefone,
+			ativo,
+			nascimento,
+			created_at,
+			updated_at
+		FROM treehousedb.usuarios
+		WHERE ativo = TRUE
+	`
+
+	var args []interface{}
+
+	if nome != "" {
+		query += " AND LOWER(nome) LIKE ?"
+		args = append(args, "%"+nome+"%")
+	}
+
+	query += " ORDER BY nome"
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []models.User
+
+	for rows.Next() {
+		var user models.User
+
+		err = rows.Scan(
+			&user.ID,
+			&user.IDEndereco,
+			&user.Senha,
+			&user.Nome,
+			&user.Email,
+			&user.CPF,
+			&user.RG,
+			&user.Telefone,
+			&user.Ativo,
+			&user.Nascimento,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		user.Senha = ""
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// FetchProfessors returns all active users with professor permission optionally filtered by name.
+func (r *UsersRepository) FetchProfessors(nome string) ([]models.User, error) {
+	query := `
+		SELECT
+			u.id,
+			u.id_endereco,
+			u.senha,
+			u.nome,
+			u.email,
+			u.cpf,
+			u.rg,
+			u.telefone,
+			u.ativo,
+			u.nascimento,
+			u.created_at,
+			u.updated_at
+		FROM treehousedb.usuarios u
+		INNER JOIN treehousedb.usuarios_permissoes up
+			ON up.id_usuario = u.id
+		WHERE up.id_permissao = 2
+		  AND u.ativo = TRUE
+	`
+
+	var args []interface{}
+
+	if nome != "" {
+		query += " AND LOWER(u.nome) LIKE ?"
+		args = append(args, "%"+nome+"%")
+	}
+
+	query += " ORDER BY u.nome"
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []models.User
+
+	for rows.Next() {
+		var user models.User
+
+		err = rows.Scan(
+			&user.ID,
+			&user.IDEndereco,
+			&user.Senha,
+			&user.Nome,
+			&user.Email,
+			&user.CPF,
+			&user.RG,
+			&user.Telefone,
+			&user.Ativo,
+			&user.Nascimento,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		user.Senha = ""
+		users = append(users, user)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
+}
+
+// ReturnAllProfessors returns all users with professor permission optionally filtered by name.
+func (r *UsersRepository) ReturnAllProfessors(nome string) ([]models.User, error) {
+	query := `
+		SELECT
+			u.id,
+			u.id_endereco,
+			u.senha,
+			u.nome,
+			u.email,
+			u.cpf,
+			u.rg,
+			u.telefone,
+			u.ativo,
+			u.nascimento,
+			u.created_at,
+			u.updated_at
+		FROM treehousedb.usuarios u
+		INNER JOIN treehousedb.usuarios_permissoes up
+			ON up.id_usuario = u.id
+		WHERE up.id_permissao = 2
+	`
+
+	var args []interface{}
+
+	if nome != "" {
+		query += " AND LOWER(u.nome) LIKE ?"
+		args = append(args, "%"+nome+"%")
+	}
+
+	query += " ORDER BY u.nome"
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var users []models.User
+
+	for rows.Next() {
+		var user models.User
+
+		err = rows.Scan(
+			&user.ID,
+			&user.IDEndereco,
+			&user.Senha,
+			&user.Nome,
+			&user.Email,
+			&user.CPF,
+			&user.RG,
+			&user.Telefone,
+			&user.Ativo,
+			&user.Nascimento,
+			&user.CreatedAt,
+			&user.UpdatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		user.Senha = ""
 		users = append(users, user)
 	}
 

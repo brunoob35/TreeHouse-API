@@ -7,7 +7,7 @@ import (
 //go get golang.org/x/crypto/bcrypt
 
 // Hash receives a string and hashes it
-// its necessary to decode the password to a slice of bytes and to set a cost for the operation.
+// Its necessary to decode the password to a slice of bytes and to set a cost for the operation.
 // Bcrypt has a default value, this is a balanced value it won't consume too much computing resources.
 func Hash(password string) ([]byte, error) {
 	return bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)

@@ -1,7 +1,6 @@
 package authentication
 
 // Permission represents a permission flag used by the application.
-//
 // IMPORTANT:
 // Each permission value must match exactly the ID stored in the database table
 // "permissoes". Since the system uses bit flags, all permission IDs must be
@@ -11,7 +10,7 @@ type Permission uint64
 const (
 	PermGestao Permission = 1 << iota
 	PermProfessor
-	PermGestaoView
+	PermGestaoMaster
 	PermFinanceiro
 	PermFinanceiroView
 )
