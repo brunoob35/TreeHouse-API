@@ -15,7 +15,7 @@ type User struct {
 	IDEndereco *uint64      `json:"id_endereco,omitempty"`
 	Nome       string       `json:"nome"`
 	Email      string       `json:"email"`
-	Senha      string       `json:"senha,omitempty"`
+	Senha      string       `json:"-"`
 	CPF        string       `json:"cpf,omitempty"`
 	RG         string       `json:"rg,omitempty"`
 	Telefone   string       `json:"telefone,omitempty"`
