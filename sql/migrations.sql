@@ -9,22 +9,22 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- =========================================================
--- OBSERVACOES IMPORTANTES
+-- OBSERVAÇÕES IMPORTANTES
 -- =========================================================
 --
 -- 1) As permissoes continuam relacionais no banco por meio das
 --    tabelas "permissoes" e "usuarios_permissoes".
 --
--- 2) Na aplicacao, as permissoes serao agregadas em uma mascara
---    numerica (bit flags) para serem gravadas no token JWT.
+-- 2) Na aplicacao, as permissoes serão agregadas numa máscara
+--    numérica (bit flags) para serem gravadas no token JWT.
 --
--- 3) Por isso, os IDs da tabela "permissoes" DEVEM ser potencias
---    de 2 e DEVEM permanecer estaveis ao longo do tempo.
+-- 3) Por isso, os IDs da tabela "permissoes" DEVEM ser potências
+--    de 2 e DEVEM permanecer estáveis ao longo do tempo.
 --
 --    Exemplos validos:
 --      1, 2, 4, 8, 16, 32, 64...
 --
---    Exemplos invalidos para essa estrategia:
+--    Exemplos inválidos para essa estratégia:
 --      3, 5, 6, 10, 20...
 --
 -- 4) Foi utilizado BIGINT UNSIGNED em permissoes.id para manter
@@ -162,10 +162,13 @@ CREATE TABLE aulas_status (
 
 CREATE TABLE turmas (
                         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                        id_professor INT UNSIGNED NOT NULL,
+                        id_professor INT UNSIGNED NULL,
                         nome VARCHAR(100) NOT NULL,
+                        descricao_recorrencia TEXT NULL,
+                        recorrencia_json JSON NULL,
                         created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                         updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                        deleted_at TIMESTAMP NULL DEFAULT NULL,
 
                         CONSTRAINT pk_turmas PRIMARY KEY (id),
 
@@ -175,14 +178,15 @@ CREATE TABLE turmas (
                                 ON DELETE RESTRICT,
 
                         INDEX idx_turmas_id_professor (id_professor),
-                        INDEX idx_turmas_nome (nome)
+                        INDEX idx_turmas_nome (nome),
+                        INDEX idx_turmas_deleted_at (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 CREATE TABLE aulas (
                        id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-                       id_status INT UNSIGNED NOT NULL,
-                       id_professor INT UNSIGNED NOT NULL,
+                       id_status INT UNSIGNED NOT NULL DEFAULT 1,
+                       id_professor INT UNSIGNED NULL,
                        id_turma INT UNSIGNED NOT NULL,
                        assunto VARCHAR(255) NULL,
                        vocabulario TEXT NULL,
@@ -196,17 +200,14 @@ CREATE TABLE aulas (
 
                        CONSTRAINT fk_aulas_status
                            FOREIGN KEY (id_status) REFERENCES aulas_status (id)
-                               ON UPDATE CASCADE
                                ON DELETE RESTRICT,
 
                        CONSTRAINT fk_aulas_professor
                            FOREIGN KEY (id_professor) REFERENCES usuarios (id)
-                               ON UPDATE CASCADE
                                ON DELETE RESTRICT,
 
                        CONSTRAINT fk_aulas_turma
                            FOREIGN KEY (id_turma) REFERENCES turmas (id)
-                               ON UPDATE CASCADE
                                ON DELETE RESTRICT,
 
                        INDEX idx_aulas_id_status (id_status),
@@ -431,7 +432,7 @@ END$$
 
 -- ---------------------------------------------------------
 -- AUTOMACAO: ao remover aluno da turma, remover somente dos
--- vinculos automaticos em aulas futuras da turma
+-- vínculos automaticos em aulas futuras da turma
 -- ---------------------------------------------------------
 CREATE TRIGGER trg_alunos_turmas_after_delete_remover_aulas_futuras
     AFTER DELETE ON alunos_turmas
