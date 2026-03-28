@@ -13,4 +13,16 @@ var loginRoutes = []Routes{
 		Function: controllers.Login,
 		Auth:     false,
 	},
+	{
+		URI:      "/auth/forgot-password",
+		Method:   http.MethodPost,
+		Function: controllers.ForgotPassword,
+		Auth:     false,
+	},
+	{
+		URI:      "/auth/reset-password",
+		Method:   http.MethodPost,
+		Function: controllers.ResetPassword,
+		Auth:     false,
+	},
 }

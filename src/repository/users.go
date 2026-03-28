@@ -330,31 +330,19 @@ func (r *UsersRepository) Update(id uint64, user models.User) error {
 }
 
 // UpdatePassword updates only the user's password hash.
-// todo: ainda não utilizada, mas vamos na troca de senha!
-func (r *UsersRepository) UpdatePassword(id uint64, passwordHash string) error {
-	query := `
+func (r *UsersRepository) UpdatePassword(userID uint64, senhaHash string) error {
+	statement, err := r.db.Prepare(`
 		UPDATE treehousedb.usuarios
-		SET
-			senha = ?,
-			updated_at = CURRENT_TIMESTAMP
+		SET senha = ?
 		WHERE id = ?
-	`
-
-	result, err := r.db.Exec(query, passwordHash, id)
+	`)
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("nenhum user encontrado com id %d", id)
-	}
-
-	return nil
+	_, err = statement.Exec(senhaHash, userID)
+	return err
 }
 
 // Delete performs a soft delete on a user.

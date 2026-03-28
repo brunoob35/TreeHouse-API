@@ -36,7 +36,7 @@ func LoadEnv() {
 		Addr:      os.Getenv("DB_ADDR"),
 		DBName:    os.Getenv("DB_DATABASE"),
 		ParseTime: true,
-		Loc:       time.Local,
+		Loc:       time.UTC,
 	}
 
 	SecretKey = []byte(os.Getenv("SECRET_KEY"))

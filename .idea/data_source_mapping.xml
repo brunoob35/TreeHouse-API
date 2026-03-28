@@ -3,5 +3,6 @@
   <component name="DataSourcePerFileMappings">
     <file url="file://$PROJECT_DIR$/sql/migrations.sql" value="f3d01d24-008e-484d-a4a5-e0ad4171438c" />
     <file url="file://$PROJECT_DIR$/src/repository/users.go" value="f3d01d24-008e-484d-a4a5-e0ad4171438c" />
+    <file url="file://$APPLICATION_CONFIG_DIR$/consoles/db/f3d01d24-008e-484d-a4a5-e0ad4171438c/console.sql" value="f3d01d24-008e-484d-a4a5-e0ad4171438c" />
   </component>
 </project>

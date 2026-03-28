@@ -3,6 +3,7 @@ package controllers
 import (
 	"encoding/json"
 	"io"
+	"log"
 	"net/http"
 
 	"github.com/brunoob35/TreeHouse-API/src/authentication"
@@ -56,6 +57,7 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	// received in the login request.
 	if err = security.ValidatePassword(userFound.Senha, user.Senha); err != nil {
 		responses.Err(w, http.StatusUnauthorized, err)
+		log.Println("Unauthorized")
 		return
 	}
 
