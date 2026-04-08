@@ -12,16 +12,13 @@ var userRoutes = []Routes{
 		URI:      "/users",
 		Method:   http.MethodPost,
 		Function: controllers.CreateUser,
-		Auth:     true,
+		Auth:     false,
 	},
 	{
 		URI:      "/users/gestor",
 		Method:   http.MethodPost,
 		Function: controllers.CreateGestor,
-		Auth:     true,
-		Permissions: []authentication.Permission{
-			authentication.PermGestaoMaster,
-		},
+		Auth:     false,
 	},
 	{
 		URI:      "/users",
@@ -57,6 +54,10 @@ var userRoutes = []Routes{
 		Method:   http.MethodPut,
 		Function: controllers.UpdateUser,
 		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+		},
 	},
 	{
 		URI:      "/users/{userID}",

@@ -1,6 +1,11 @@
 package security
 
 import (
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/hex"
+
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -17,4 +22,19 @@ func Hash(password string) ([]byte, error) {
 // and returning if equals.
 func ValidatePassword(hashedPassword, stringPassword string) error {
 	return bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(stringPassword))
+}
+
+// GenerateSecureToken Gera um novo token para redefinição de senha
+func GenerateSecureToken(size int) (string, error) {
+	b := make([]byte, size)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b), nil
+}
+
+// HashToken Realiza o hash do token antes de salvar no DB
+func HashToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
 }

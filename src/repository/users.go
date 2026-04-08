@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+	"strings"
 
 	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
@@ -330,31 +332,19 @@ func (r *UsersRepository) Update(id uint64, user models.User) error {
 }
 
 // UpdatePassword updates only the user's password hash.
-// todo: ainda não utilizada, mas vamos na troca de senha!
-func (r *UsersRepository) UpdatePassword(id uint64, passwordHash string) error {
-	query := `
+func (r *UsersRepository) UpdatePassword(userID uint64, senhaHash string) error {
+	statement, err := r.db.Prepare(`
 		UPDATE treehousedb.usuarios
-		SET
-			senha = ?,
-			updated_at = CURRENT_TIMESTAMP
+		SET senha = ?
 		WHERE id = ?
-	`
-
-	result, err := r.db.Exec(query, passwordHash, id)
+	`)
 	if err != nil {
 		return err
 	}
+	defer statement.Close()
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return err
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("nenhum user encontrado com id %d", id)
-	}
-
-	return nil
+	_, err = statement.Exec(senhaHash, userID)
+	return err
 }
 
 // Delete performs a soft delete on a user.
@@ -530,6 +520,7 @@ func (r *UsersRepository) FetchAllActiveUsers(nome string) ([]models.User, error
 
 // FetchProfessors returns all active users with professor permission optionally filtered by name.
 func (r *UsersRepository) FetchProfessors(nome string) ([]models.User, error) {
+	log.Println("Beteu no Repo")
 	query := `
 		SELECT
 			u.id,
@@ -669,4 +660,60 @@ func (r *UsersRepository) ReturnAllProfessors(nome string) ([]models.User, error
 	}
 
 	return users, nil
+}
+
+func (r *UsersRepository) CountClassesByProfessorIDs(professorIDs []uint64) ([]models.ProfessorClassCount, error) {
+	if len(professorIDs) == 0 {
+		return []models.ProfessorClassCount{}, nil
+	}
+
+	placeholders := make([]string, len(professorIDs))
+	args := make([]interface{}, 0, len(professorIDs)+1)
+
+	for i, id := range professorIDs {
+		placeholders[i] = "?"
+		args = append(args, id)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			u.id AS professor_id,
+			COUNT(t.id) AS classes_count
+		FROM treehousedb.usuarios u
+		INNER JOIN treehousedb.usuarios_permissoes up
+			ON up.id_usuario = u.id
+			AND up.id_permissao = ?
+		LEFT JOIN treehousedb.turmas t
+			ON t.id_professor = u.id
+			AND t.deleted_at IS NULL
+		WHERE u.id IN (%s)
+		GROUP BY u.id
+		ORDER BY u.id
+	`, strings.Join(placeholders, ","))
+
+	args = append([]interface{}{uint64(authentication.PermProfessor)}, args...)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var counts []models.ProfessorClassCount
+
+	for rows.Next() {
+		var item models.ProfessorClassCount
+
+		if err = rows.Scan(&item.ProfessorID, &item.ClassesCount); err != nil {
+			return nil, err
+		}
+
+		counts = append(counts, item)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return counts, nil
 }

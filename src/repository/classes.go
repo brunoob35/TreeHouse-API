@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 )
 
@@ -426,4 +427,79 @@ func (r ClassesRepository) CreatePrivateClassFromStudent(studentID uint64, teach
 	}
 
 	return uint64(classID), nil
+}
+
+func (r *ClassesRepository) AssignProfessorToClass(classID, professorID uint64) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	var professorExists bool
+	queryProfessor := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM treehousedb.usuarios u
+			INNER JOIN treehousedb.usuarios_permissoes up
+				ON up.id_usuario = u.id
+			WHERE u.id = ?
+			  AND u.ativo = TRUE
+			  AND up.id_permissao = ?
+		)
+	`
+
+	if err = tx.QueryRow(queryProfessor, professorID, authentication.PermProfessor).Scan(&professorExists); err != nil {
+		return err
+	}
+	if !professorExists {
+		return fmt.Errorf("professor não encontrado ou inválido")
+	}
+
+	var classExists bool
+	queryClass := `
+		SELECT EXISTS(
+			SELECT 1
+			FROM treehousedb.turmas
+			WHERE id = ?
+		)
+	`
+
+	if err = tx.QueryRow(queryClass, classID).Scan(&classExists); err != nil {
+		return err
+	}
+	if !classExists {
+		return fmt.Errorf("turma não encontrada")
+	}
+
+	queryUpdate := `
+		UPDATE treehousedb.turmas
+		SET
+			id_professor = ?,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id = ?
+	`
+
+	result, err := tx.Exec(queryUpdate, professorID, classID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rowsAffected == 0 {
+		return fmt.Errorf("nenhuma turma encontrada com id %d", classID)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
 }
