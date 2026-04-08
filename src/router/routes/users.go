@@ -54,6 +54,10 @@ var userRoutes = []Routes{
 		Method:   http.MethodPut,
 		Function: controllers.UpdateUser,
 		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+		},
 	},
 	{
 		URI:      "/users/{userID}",

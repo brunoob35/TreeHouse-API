@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"log"
+	"strings"
 
 	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
@@ -518,6 +520,7 @@ func (r *UsersRepository) FetchAllActiveUsers(nome string) ([]models.User, error
 
 // FetchProfessors returns all active users with professor permission optionally filtered by name.
 func (r *UsersRepository) FetchProfessors(nome string) ([]models.User, error) {
+	log.Println("Beteu no Repo")
 	query := `
 		SELECT
 			u.id,
@@ -657,4 +660,60 @@ func (r *UsersRepository) ReturnAllProfessors(nome string) ([]models.User, error
 	}
 
 	return users, nil
+}
+
+func (r *UsersRepository) CountClassesByProfessorIDs(professorIDs []uint64) ([]models.ProfessorClassCount, error) {
+	if len(professorIDs) == 0 {
+		return []models.ProfessorClassCount{}, nil
+	}
+
+	placeholders := make([]string, len(professorIDs))
+	args := make([]interface{}, 0, len(professorIDs)+1)
+
+	for i, id := range professorIDs {
+		placeholders[i] = "?"
+		args = append(args, id)
+	}
+
+	query := fmt.Sprintf(`
+		SELECT
+			u.id AS professor_id,
+			COUNT(t.id) AS classes_count
+		FROM treehousedb.usuarios u
+		INNER JOIN treehousedb.usuarios_permissoes up
+			ON up.id_usuario = u.id
+			AND up.id_permissao = ?
+		LEFT JOIN treehousedb.turmas t
+			ON t.id_professor = u.id
+			AND t.deleted_at IS NULL
+		WHERE u.id IN (%s)
+		GROUP BY u.id
+		ORDER BY u.id
+	`, strings.Join(placeholders, ","))
+
+	args = append([]interface{}{uint64(authentication.PermProfessor)}, args...)
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var counts []models.ProfessorClassCount
+
+	for rows.Next() {
+		var item models.ProfessorClassCount
+
+		if err = rows.Scan(&item.ProfessorID, &item.ClassesCount); err != nil {
+			return nil, err
+		}
+
+		counts = append(counts, item)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return counts, nil
 }
