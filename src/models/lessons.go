@@ -9,6 +9,7 @@ import (
 type Lesson struct {
 	ID         uint64    `json:"id,omitempty"`
 	StatusID   uint64    `json:"status_id,omitempty"`
+	StatusName string    `json:"status_name,omitempty"`
 	TeacherID  *uint64   `json:"teacher_id,omitempty"`
 	ClassID    uint64    `json:"class_id"`
 	Subject    string    `json:"subject,omitempty"`

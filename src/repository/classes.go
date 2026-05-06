@@ -1,9 +1,12 @@
 package repositories
 
 import (
+	"encoding/json"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
@@ -17,7 +20,25 @@ func NewClassesRepository(db *sql.DB) *ClassesRepository {
 	return &ClassesRepository{db}
 }
 
-func (r ClassesRepository) Create(class models.Class) (uint64, error) {
+type classRecurrencePayload struct {
+	Weekdays    []string `json:"weekdays"`
+	LessonCount int      `json:"lesson_count"`
+	StartDate   string   `json:"start_date"`
+	StartTime   string   `json:"start_time"`
+}
+
+func (r ClassesRepository) Create(class models.Class) (uint64, int, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, 0, err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
 	query := `
 		INSERT INTO treehousedb.turmas (
 			id_professor,
@@ -34,7 +55,7 @@ func (r ClassesRepository) Create(class models.Class) (uint64, error) {
 		teacherID = nil
 	}
 
-	result, err := r.db.Exec(
+	result, err := tx.Exec(
 		query,
 		teacherID,
 		class.Name,
@@ -42,15 +63,156 @@ func (r ClassesRepository) Create(class models.Class) (uint64, error) {
 		nullIfEmpty(class.RecurrenceJSON),
 	)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	lastInsertedID, err := result.LastInsertId()
 	if err != nil {
+		return 0, 0, err
+	}
+
+	generatedLessonsCount, err := createLessonsFromRecurrence(tx, uint64(lastInsertedID), class)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return 0, 0, err
+	}
+
+	return uint64(lastInsertedID), generatedLessonsCount, nil
+}
+
+func createLessonsFromRecurrence(tx *sql.Tx, classID uint64, class models.Class) (int, error) {
+	recurrenceRaw := strings.TrimSpace(class.RecurrenceJSON)
+	if recurrenceRaw == "" {
+		return 0, nil
+	}
+
+	var recurrence classRecurrencePayload
+	if err := json.Unmarshal([]byte(recurrenceRaw), &recurrence); err != nil {
+		return 0, fmt.Errorf("invalid recurrence_json: %w", err)
+	}
+
+	lessonDates, err := buildLessonDates(recurrence)
+	if err != nil {
 		return 0, err
 	}
 
-	return uint64(lastInsertedID), nil
+	if len(lessonDates) == 0 {
+		return 0, nil
+	}
+
+	query := `
+		INSERT INTO treehousedb.aulas (
+			id_status,
+			id_professor,
+			id_turma,
+			data_aula
+		) VALUES (?, ?, ?, ?)
+	`
+
+	var teacherID interface{}
+	if class.TeacherID != nil {
+		teacherID = *class.TeacherID
+	} else {
+		teacherID = nil
+	}
+
+	for _, lessonDate := range lessonDates {
+		_, err := tx.Exec(query, 1, teacherID, classID, lessonDate)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return len(lessonDates), nil
+}
+
+func buildLessonDates(recurrence classRecurrencePayload) ([]time.Time, error) {
+	if strings.TrimSpace(recurrence.StartDate) == "" {
+		return nil, errors.New("recurrence start_date is required")
+	}
+	if strings.TrimSpace(recurrence.StartTime) == "" {
+		return nil, errors.New("recurrence start_time is required")
+	}
+	if recurrence.LessonCount <= 0 {
+		return nil, errors.New("recurrence lesson_count must be greater than zero")
+	}
+	if len(recurrence.Weekdays) == 0 {
+		return nil, errors.New("recurrence weekdays is required")
+	}
+
+	startDate, err := time.Parse("2006-01-02", recurrence.StartDate)
+	if err != nil {
+		return nil, fmt.Errorf("invalid recurrence start_date: %w", err)
+	}
+
+	startTime, err := time.Parse("15:04", recurrence.StartTime)
+	if err != nil {
+		return nil, fmt.Errorf("invalid recurrence start_time: %w", err)
+	}
+
+	allowedWeekdays := map[time.Weekday]struct{}{}
+	for _, day := range recurrence.Weekdays {
+		weekday, err := parseWeekday(day)
+		if err != nil {
+			return nil, err
+		}
+		allowedWeekdays[weekday] = struct{}{}
+	}
+
+	baseDate := time.Date(
+		startDate.Year(),
+		startDate.Month(),
+		startDate.Day(),
+		startTime.Hour(),
+		startTime.Minute(),
+		0,
+		0,
+		time.UTC,
+	)
+
+	var lessonDates []time.Time
+	for offsetDays := 0; len(lessonDates) < recurrence.LessonCount && offsetDays < recurrence.LessonCount*14; offsetDays++ {
+		candidate := baseDate.AddDate(0, 0, offsetDays)
+		if candidate.Before(baseDate) {
+			continue
+		}
+
+		if _, ok := allowedWeekdays[candidate.Weekday()]; !ok {
+			continue
+		}
+
+		lessonDates = append(lessonDates, candidate)
+	}
+
+	if len(lessonDates) != recurrence.LessonCount {
+		return nil, errors.New("could not generate the requested number of lessons from recurrence")
+	}
+
+	return lessonDates, nil
+}
+
+func parseWeekday(value string) (time.Weekday, error) {
+	switch strings.ToLower(strings.TrimSpace(value)) {
+	case "domingo", "dom", "sunday":
+		return time.Sunday, nil
+	case "segunda", "seg", "monday":
+		return time.Monday, nil
+	case "terca", "terça", "ter", "tuesday":
+		return time.Tuesday, nil
+	case "quarta", "qua", "wednesday":
+		return time.Wednesday, nil
+	case "quinta", "qui", "thursday":
+		return time.Thursday, nil
+	case "sexta", "sex", "friday":
+		return time.Friday, nil
+	case "sabado", "sábado", "sab", "saturday":
+		return time.Saturday, nil
+	default:
+		return time.Sunday, fmt.Errorf("invalid recurrence weekday: %s", value)
+	}
 }
 
 func (r ClassesRepository) FetchByID(classID uint64) (models.Class, error) {
@@ -243,6 +405,22 @@ func (r ClassesRepository) FetchAll() ([]models.Class, error) {
 }
 
 func (r ClassesRepository) Update(classID uint64, class models.Class) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	currentClass, err := r.fetchByIDTx(tx, classID)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.turmas
 		SET
@@ -261,7 +439,7 @@ func (r ClassesRepository) Update(classID uint64, class models.Class) error {
 		teacherID = nil
 	}
 
-	_, err := r.db.Exec(
+	_, err = tx.Exec(
 		query,
 		teacherID,
 		class.Name,
@@ -269,11 +447,44 @@ func (r ClassesRepository) Update(classID uint64, class models.Class) error {
 		nullIfEmpty(class.RecurrenceJSON),
 		classID,
 	)
+	if err != nil {
+		return err
+	}
 
-	return err
+	recurrenceChanged := normalizedNullableString(currentClass.RecurrenceJSON) != normalizedNullableString(class.RecurrenceJSON)
+	teacherChanged := equalTeacherID(currentClass.TeacherID, class.TeacherID) == false
+
+	if recurrenceChanged {
+		if err = deleteOpenLessonsByClassTx(tx, classID); err != nil {
+			return err
+		}
+
+		if _, err = createLessonsFromRecurrence(tx, classID, class); err != nil {
+			return err
+		}
+	}
+
+	if teacherChanged {
+		if err = updateOpenLessonsTeacherByClassTx(tx, classID, class.TeacherID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 func (r ClassesRepository) SoftDelete(classID uint64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
 	query := `
 		UPDATE treehousedb.turmas
 		SET deleted_at = CURRENT_TIMESTAMP
@@ -281,8 +492,16 @@ func (r ClassesRepository) SoftDelete(classID uint64) error {
 		  AND deleted_at IS NULL
 	`
 
-	_, err := r.db.Exec(query, classID)
-	return err
+	_, err = tx.Exec(query, classID)
+	if err != nil {
+		return err
+	}
+
+	if err = cancelOpenLessonsByClassTx(tx, classID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r ClassesRepository) AddStudent(classID uint64, studentID uint64) error {
@@ -497,9 +716,137 @@ func (r *ClassesRepository) AssignProfessorToClass(classID, professorID uint64) 
 		return fmt.Errorf("nenhuma turma encontrada com id %d", classID)
 	}
 
+	professorIDCopy := professorID
+	if err = updateOpenLessonsTeacherByClassTx(tx, classID, &professorIDCopy); err != nil {
+		return err
+	}
+
 	if err = tx.Commit(); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (r ClassesRepository) fetchByIDTx(tx *sql.Tx, classID uint64) (models.Class, error) {
+	query := `
+		SELECT
+			id,
+			id_professor,
+			nome,
+			descricao_recorrencia,
+			recorrencia_json,
+			created_at,
+			updated_at,
+			deleted_at
+		FROM treehousedb.turmas
+		WHERE id = ?
+		LIMIT 1
+	`
+
+	var class models.Class
+	var teacherID sql.NullInt64
+	var recurrenceDesc sql.NullString
+	var recurrenceJSON sql.NullString
+	var deletedAt sql.NullTime
+
+	err := tx.QueryRow(query, classID).Scan(
+		&class.ID,
+		&teacherID,
+		&class.Name,
+		&recurrenceDesc,
+		&recurrenceJSON,
+		&class.CreatedAt,
+		&class.UpdatedAt,
+		&deletedAt,
+	)
+	if err != nil {
+		return models.Class{}, err
+	}
+
+	if teacherID.Valid {
+		tid := uint64(teacherID.Int64)
+		class.TeacherID = &tid
+	}
+	if recurrenceDesc.Valid {
+		class.RecurrenceDesc = recurrenceDesc.String
+	}
+	if recurrenceJSON.Valid {
+		class.RecurrenceJSON = recurrenceJSON.String
+	}
+	if deletedAt.Valid {
+		class.DeletedAt = &deletedAt.Time
+	}
+
+	return class, nil
+}
+
+func deleteOpenLessonsByClassTx(tx *sql.Tx, classID uint64) error {
+	queryDeleteRelations := `
+		DELETE aa
+		FROM treehousedb.alunos_aulas aa
+		INNER JOIN treehousedb.aulas a ON a.id = aa.id_aula
+		WHERE a.id_turma = ?
+		  AND a.id_status <> 2
+	`
+
+	if _, err := tx.Exec(queryDeleteRelations, classID); err != nil {
+		return err
+	}
+
+	queryDeleteLessons := `
+		DELETE FROM treehousedb.aulas
+		WHERE id_turma = ?
+		  AND id_status <> 2
+	`
+
+	_, err := tx.Exec(queryDeleteLessons, classID)
+	return err
+}
+
+func cancelOpenLessonsByClassTx(tx *sql.Tx, classID uint64) error {
+	query := `
+		UPDATE treehousedb.aulas
+		SET
+			id_status = 3,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id_turma = ?
+		  AND id_status <> 2
+	`
+
+	_, err := tx.Exec(query, classID)
+	return err
+}
+
+func updateOpenLessonsTeacherByClassTx(tx *sql.Tx, classID uint64, teacherID *uint64) error {
+	query := `
+		UPDATE treehousedb.aulas
+		SET
+			id_professor = ?,
+			updated_at = CURRENT_TIMESTAMP
+		WHERE id_turma = ?
+		  AND id_status <> 2
+	`
+
+	var teacher interface{}
+	if teacherID != nil {
+		teacher = *teacherID
+	}
+
+	_, err := tx.Exec(query, teacher, classID)
+	return err
+}
+
+func equalTeacherID(left *uint64, right *uint64) bool {
+	if left == nil && right == nil {
+		return true
+	}
+	if left == nil || right == nil {
+		return false
+	}
+	return *left == *right
+}
+
+func normalizedNullableString(value string) string {
+	return strings.TrimSpace(value)
 }

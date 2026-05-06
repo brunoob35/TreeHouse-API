@@ -113,6 +113,35 @@ func FetchStudent(w http.ResponseWriter, r *http.Request) {
 	responses.JSON(w, http.StatusOK, student)
 }
 
+// FetchStudentClasses returns all classes linked to a student,
+// including inactive classes for historical visualization.
+func FetchStudentClasses(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+
+	studentID, err := strconv.ParseUint(params["studentID"], 10, 64)
+	if err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repositories.NewStudentsRepository(db)
+
+	classes, err := repo.FetchClasses(studentID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, classes)
+}
+
 // UpdateStudent updates the base data of an existing student.
 // This endpoint updates the editable fields stored in the "alunos" table.
 // The student ID is provided as a path parameter.
@@ -156,7 +185,13 @@ func UpdateStudent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	updatedStudent, err := repo.FetchByID(studentID)
+	if err != nil {
+		responses.JSON(w, http.StatusOK, student)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, updatedStudent)
 }
 
 // DeleteStudent performs a soft delete on a student.

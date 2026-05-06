@@ -16,6 +16,7 @@ var studentsRoutes = []Routes{
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
 			authentication.PermProfessor,
+			authentication.PermGestaoMaster,
 		},
 	},
 	{
@@ -26,6 +27,7 @@ var studentsRoutes = []Routes{
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
 			authentication.PermProfessor,
+			authentication.PermGestaoMaster,
 		},
 	},
 	{
@@ -36,6 +38,18 @@ var studentsRoutes = []Routes{
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
 			authentication.PermProfessor,
+			authentication.PermGestaoMaster,
+		},
+	},
+	{
+		URI:      "/students/{studentID}/classes",
+		Method:   http.MethodGet,
+		Function: controllers.FetchStudentClasses,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermProfessor,
+			authentication.PermGestaoMaster,
 		},
 	},
 	{
@@ -46,6 +60,7 @@ var studentsRoutes = []Routes{
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
 			authentication.PermProfessor,
+			authentication.PermGestaoMaster,
 		},
 	},
 	{
@@ -56,6 +71,7 @@ var studentsRoutes = []Routes{
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
 			authentication.PermProfessor,
+			authentication.PermGestaoMaster,
 		},
 	},
 }
