@@ -39,14 +39,21 @@ func CreateClass(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repository := repositories.NewClassesRepository(db)
-	classID, err := repository.Create(class)
+	classID, generatedLessonsCount, err := repository.Create(class)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 
 	class.ID = classID
-	responses.JSON(w, http.StatusCreated, class)
+	responses.JSON(w, http.StatusCreated, map[string]interface{}{
+		"id":                    class.ID,
+		"teacher_id":            class.TeacherID,
+		"name":                  class.Name,
+		"recurrence_desc":       class.RecurrenceDesc,
+		"recurrence_json":       class.RecurrenceJSON,
+		"generated_lessons_count": generatedLessonsCount,
+	})
 }
 
 func FetchClass(w http.ResponseWriter, r *http.Request) {
@@ -148,7 +155,13 @@ func UpdateClass(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	responses.JSON(w, http.StatusNoContent, nil)
+	updatedClass, err := repository.FetchByID(classID)
+	if err != nil {
+		responses.JSON(w, http.StatusOK, class)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, updatedClass)
 }
 
 func DeleteClass(w http.ResponseWriter, r *http.Request) {

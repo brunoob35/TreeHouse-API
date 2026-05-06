@@ -227,3 +227,77 @@ func (r *StudentsRepository) SoftDelete(id uint64) error {
 
 	return nil
 }
+
+// FetchClasses returns every class associated with a student,
+// including inactive ones for historical review.
+func (r *StudentsRepository) FetchClasses(studentID uint64) ([]models.Class, error) {
+	query := `
+		SELECT
+			t.id,
+			t.id_professor,
+			t.nome,
+			t.descricao_recorrencia,
+			t.recorrencia_json,
+			t.created_at,
+			t.updated_at,
+			t.deleted_at
+		FROM treehousedb.turmas t
+		INNER JOIN treehousedb.alunos_turmas at
+			ON at.id_turma = t.id
+		WHERE at.id_aluno = ?
+		ORDER BY
+			CASE WHEN t.deleted_at IS NULL THEN 0 ELSE 1 END,
+			t.nome ASC
+	`
+
+	rows, err := r.db.Query(query, studentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var classes []models.Class
+
+	for rows.Next() {
+		var class models.Class
+		var teacherID sql.NullInt64
+		var recurrenceDesc sql.NullString
+		var recurrenceJSON sql.NullString
+		var deletedAt sql.NullTime
+
+		if err = rows.Scan(
+			&class.ID,
+			&teacherID,
+			&class.Name,
+			&recurrenceDesc,
+			&recurrenceJSON,
+			&class.CreatedAt,
+			&class.UpdatedAt,
+			&deletedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		if teacherID.Valid {
+			tid := uint64(teacherID.Int64)
+			class.TeacherID = &tid
+		}
+		if recurrenceDesc.Valid {
+			class.RecurrenceDesc = recurrenceDesc.String
+		}
+		if recurrenceJSON.Valid {
+			class.RecurrenceJSON = recurrenceJSON.String
+		}
+		if deletedAt.Valid {
+			class.DeletedAt = &deletedAt.Time
+		}
+
+		classes = append(classes, class)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return classes, nil
+}

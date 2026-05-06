@@ -113,6 +113,7 @@ func (r LessonsRepository) FetchByID(lessonID uint64) (models.Lesson, error) {
 		SELECT
 			id,
 			id_status,
+			(SELECT nome_status FROM treehousedb.aulas_status WHERE id = a.id_status) AS status_name,
 			id_professor,
 			id_turma,
 			assunto,
@@ -122,13 +123,14 @@ func (r LessonsRepository) FetchByID(lessonID uint64) (models.Lesson, error) {
 			data_aula,
 			created_at,
 			updated_at
-		FROM treehousedb.aulas
+		FROM treehousedb.aulas a
 		WHERE id = ?
 		LIMIT 1
 	`
 
 	var lesson models.Lesson
 	var teacherID sql.NullInt64
+	var statusName sql.NullString
 	var subject sql.NullString
 	var vocabulary sql.NullString
 	var balance sql.NullString
@@ -137,6 +139,7 @@ func (r LessonsRepository) FetchByID(lessonID uint64) (models.Lesson, error) {
 	err := r.db.QueryRow(query, lessonID).Scan(
 		&lesson.ID,
 		&lesson.StatusID,
+		&statusName,
 		&teacherID,
 		&lesson.ClassID,
 		&subject,
@@ -154,6 +157,9 @@ func (r LessonsRepository) FetchByID(lessonID uint64) (models.Lesson, error) {
 	if teacherID.Valid {
 		tid := uint64(teacherID.Int64)
 		lesson.TeacherID = &tid
+	}
+	if statusName.Valid {
+		lesson.StatusName = statusName.String
 	}
 
 	if subject.Valid {
@@ -177,6 +183,7 @@ func (r LessonsRepository) FetchAll() ([]models.Lesson, error) {
 		SELECT
 			id,
 			id_status,
+			(SELECT nome_status FROM treehousedb.aulas_status WHERE id = a.id_status) AS status_name,
 			id_professor,
 			id_turma,
 			assunto,
@@ -186,7 +193,7 @@ func (r LessonsRepository) FetchAll() ([]models.Lesson, error) {
 			data_aula,
 			created_at,
 			updated_at
-		FROM treehousedb.aulas
+		FROM treehousedb.aulas a
 		ORDER BY data_aula DESC, id DESC
 	`
 
@@ -201,6 +208,7 @@ func (r LessonsRepository) FetchAll() ([]models.Lesson, error) {
 	for rows.Next() {
 		var lesson models.Lesson
 		var teacherID sql.NullInt64
+		var statusName sql.NullString
 		var subject sql.NullString
 		var vocabulary sql.NullString
 		var balance sql.NullString
@@ -209,6 +217,7 @@ func (r LessonsRepository) FetchAll() ([]models.Lesson, error) {
 		if err = rows.Scan(
 			&lesson.ID,
 			&lesson.StatusID,
+			&statusName,
 			&teacherID,
 			&lesson.ClassID,
 			&subject,
@@ -225,6 +234,9 @@ func (r LessonsRepository) FetchAll() ([]models.Lesson, error) {
 		if teacherID.Valid {
 			tid := uint64(teacherID.Int64)
 			lesson.TeacherID = &tid
+		}
+		if statusName.Valid {
+			lesson.StatusName = statusName.String
 		}
 		if subject.Valid {
 			lesson.Subject = subject.String
@@ -250,6 +262,7 @@ func (r LessonsRepository) FetchByClass(classID uint64) ([]models.Lesson, error)
 		SELECT
 			id,
 			id_status,
+			(SELECT nome_status FROM treehousedb.aulas_status WHERE id = a.id_status) AS status_name,
 			id_professor,
 			id_turma,
 			assunto,
@@ -259,7 +272,7 @@ func (r LessonsRepository) FetchByClass(classID uint64) ([]models.Lesson, error)
 			data_aula,
 			created_at,
 			updated_at
-		FROM treehousedb.aulas
+		FROM treehousedb.aulas a
 		WHERE id_turma = ?
 		ORDER BY data_aula ASC, id ASC
 	`
@@ -275,6 +288,7 @@ func (r LessonsRepository) FetchByClass(classID uint64) ([]models.Lesson, error)
 	for rows.Next() {
 		var lesson models.Lesson
 		var teacherID sql.NullInt64
+		var statusName sql.NullString
 		var subject sql.NullString
 		var vocabulary sql.NullString
 		var balance sql.NullString
@@ -283,6 +297,7 @@ func (r LessonsRepository) FetchByClass(classID uint64) ([]models.Lesson, error)
 		if err = rows.Scan(
 			&lesson.ID,
 			&lesson.StatusID,
+			&statusName,
 			&teacherID,
 			&lesson.ClassID,
 			&subject,
@@ -299,6 +314,9 @@ func (r LessonsRepository) FetchByClass(classID uint64) ([]models.Lesson, error)
 		if teacherID.Valid {
 			tid := uint64(teacherID.Int64)
 			lesson.TeacherID = &tid
+		}
+		if statusName.Valid {
+			lesson.StatusName = statusName.String
 		}
 		if subject.Valid {
 			lesson.Subject = subject.String

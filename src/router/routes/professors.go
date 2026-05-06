@@ -25,6 +25,7 @@ var professorsRoutes = []Routes{
 		Auth:     true,
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
+			authentication.PermGestaoMaster,
 		},
 	},
 	{
@@ -34,6 +35,7 @@ var professorsRoutes = []Routes{
 		Auth:     true,
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
+			authentication.PermGestaoMaster,
 		},
 	},
 	{
@@ -43,6 +45,7 @@ var professorsRoutes = []Routes{
 		Auth:     true,
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
+			authentication.PermGestaoMaster,
 		},
 	},
 	{
@@ -52,6 +55,7 @@ var professorsRoutes = []Routes{
 		Auth:     true,
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
+			authentication.PermGestaoMaster,
 		},
 	},
 }
