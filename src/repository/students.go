@@ -60,25 +60,45 @@ func (r *StudentsRepository) Insert(student models.Student) (uint64, error) {
 func (r *StudentsRepository) FetchAll(nome string) ([]models.Student, error) {
 	query := `
 		SELECT
-			id,
-			nome,
-			livro,
-			alfabetizacao,
-			nascimento,
-			ativo,
-			created_at,
-			updated_at
-		FROM treehousedb.alunos
+			a.id,
+			a.nome,
+			a.livro,
+			a.alfabetizacao,
+			a.nascimento,
+			COALESCE(MAX(c.nome), '') AS responsavel,
+			COALESCE(MAX(c.telefone), '') AS responsavel_telefone,
+			COUNT(DISTINCT at.id_turma) AS classes_count,
+			a.ativo,
+			a.created_at,
+			a.updated_at
+		FROM treehousedb.alunos a
+		LEFT JOIN treehousedb.clientes_alunos ca
+			ON ca.id_aluno = a.id
+		LEFT JOIN treehousedb.clientes c
+			ON c.id = ca.id_cliente
+		LEFT JOIN treehousedb.alunos_turmas at
+			ON at.id_aluno = a.id
 	`
 
 	var args []interface{}
 
 	if nome != "" {
-		query += " WHERE LOWER(nome) LIKE ?"
+		query += " WHERE LOWER(a.nome) LIKE ?"
 		args = append(args, "%"+nome+"%")
 	}
 
-	query += " ORDER BY nome"
+	query += `
+		GROUP BY
+			a.id,
+			a.nome,
+			a.livro,
+			a.alfabetizacao,
+			a.nascimento,
+			a.ativo,
+			a.created_at,
+			a.updated_at
+		ORDER BY a.nome
+	`
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -97,6 +117,9 @@ func (r *StudentsRepository) FetchAll(nome string) ([]models.Student, error) {
 			&student.Livro,
 			&student.Alfabetizacao,
 			&student.Nascimento,
+			&student.Responsavel,
+			&student.ResponsavelTelefone,
+			&student.ClassesCount,
 			&student.Ativo,
 			&student.CreatedAt,
 			&student.UpdatedAt,

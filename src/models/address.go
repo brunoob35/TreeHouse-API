@@ -4,6 +4,7 @@ import "time"
 
 type Address struct {
 	ID          uint64    `json:"id,omitempty"`
+	CEP         string    `json:"cep,omitempty"`
 	Rua         string    `json:"rua"`
 	Numero      string    `json:"numero"`
 	Bairro      string    `json:"bairro"`

@@ -15,6 +15,9 @@ type Student struct {
 	Livro         string     `json:"livro,omitempty"`
 	Alfabetizacao string     `json:"alfabetizacao,omitempty"`
 	Nascimento    *time.Time `json:"nascimento,omitempty"`
+	Responsavel   string     `json:"responsavel,omitempty"`
+	ResponsavelTelefone string `json:"responsavel_telefone,omitempty"`
+	ClassesCount  uint64     `json:"classes_count,omitempty"`
 	Ativo         bool       `json:"ativo"`
 	CreatedAt     time.Time  `json:"created_at,omitempty"`
 	UpdatedAt     time.Time  `json:"updated_at,omitempty"`
