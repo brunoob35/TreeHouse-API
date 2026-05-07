@@ -587,10 +587,10 @@ func (r ClassesRepository) FetchStudents(classID uint64) ([]models.Student, erro
 	return students, nil
 }
 
-func (r ClassesRepository) CreatePrivateClassFromStudent(studentID uint64, teacherID *uint64) (uint64, error) {
+func (r ClassesRepository) CreatePrivateClassFromStudent(studentID uint64, class models.Class) (uint64, int, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	defer func() {
@@ -603,33 +603,50 @@ func (r ClassesRepository) CreatePrivateClassFromStudent(studentID uint64, teach
 	queryStudent := `SELECT nome FROM treehousedb.alunos WHERE id = ? LIMIT 1`
 
 	if err = tx.QueryRow(queryStudent, studentID).Scan(&studentName); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	className := fmt.Sprintf("%s - Particular", strings.TrimSpace(studentName))
+	className := strings.TrimSpace(class.Name)
+	if className == "" {
+		className = fmt.Sprintf("Turma %s", strings.TrimSpace(studentName))
+	}
 
 	queryClass := `
 		INSERT INTO treehousedb.turmas (
 			id_professor,
-			nome
-		) VALUES (?, ?)
+			nome,
+			descricao_recorrencia,
+			recorrencia_json
+		) VALUES (?, ?, ?, ?)
 	`
 
 	var teacher interface{}
-	if teacherID != nil {
-		teacher = *teacherID
+	if class.TeacherID != nil {
+		teacher = *class.TeacherID
 	} else {
 		teacher = nil
 	}
 
-	result, err := tx.Exec(queryClass, teacher, className)
+	result, err := tx.Exec(
+		queryClass,
+		teacher,
+		className,
+		nullIfEmpty(class.RecurrenceDesc),
+		nullIfEmpty(class.RecurrenceJSON),
+	)
 	if err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	classID, err := result.LastInsertId()
 	if err != nil {
-		return 0, err
+		return 0, 0, err
+	}
+
+	class.Name = className
+	generatedLessonsCount, err := createLessonsFromRecurrence(tx, uint64(classID), class)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	queryRelation := `
@@ -638,14 +655,14 @@ func (r ClassesRepository) CreatePrivateClassFromStudent(studentID uint64, teach
 	`
 
 	if _, err = tx.Exec(queryRelation, studentID, classID); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
 	if err = tx.Commit(); err != nil {
-		return 0, err
+		return 0, 0, err
 	}
 
-	return uint64(classID), nil
+	return uint64(classID), generatedLessonsCount, nil
 }
 
 func (r *ClassesRepository) AssignProfessorToClass(classID, professorID uint64) (err error) {

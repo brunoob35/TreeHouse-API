@@ -47,6 +47,7 @@ CREATE TABLE permissoes (
 
 CREATE TABLE enderecos (
                            id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+                           cep VARCHAR(8) NOT NULL,
                            rua VARCHAR(150) NOT NULL,
                            numero VARCHAR(20) NOT NULL,
                            bairro VARCHAR(100) NOT NULL,
@@ -160,6 +161,28 @@ CREATE TABLE aulas_status (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
+CREATE TABLE contratos_status (
+                                  id INT UNSIGNED NOT NULL,
+                                  nome_status VARCHAR(50) NOT NULL,
+                                  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+                                  CONSTRAINT pk_contratos_status PRIMARY KEY (id),
+                                  CONSTRAINT uq_contratos_status_nome_status UNIQUE (nome_status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+CREATE TABLE contratos_tipos (
+                                 id INT UNSIGNED NOT NULL,
+                                 nome_tipo VARCHAR(50) NOT NULL,
+                                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                                 updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+                                 CONSTRAINT pk_contratos_tipos PRIMARY KEY (id),
+                                 CONSTRAINT uq_contratos_tipos_nome_tipo UNIQUE (nome_tipo)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
 CREATE TABLE turmas (
                         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
                         id_professor INT UNSIGNED NULL,
@@ -223,7 +246,9 @@ CREATE TABLE contratos (
                            id_cliente_representante INT UNSIGNED NOT NULL,
                            id_cliente_responsavel INT UNSIGNED NOT NULL,
                            id_aluno INT UNSIGNED NOT NULL,
-                           tipo_contrato VARCHAR(100) NOT NULL,
+                           id_tipo_contrato INT UNSIGNED NOT NULL,
+                           id_status INT UNSIGNED NOT NULL DEFAULT 2,
+                           id_turma INT UNSIGNED NULL,
                            valor DECIMAL(10,2) NOT NULL,
                            email_representante VARCHAR(150) NULL,
                            cpf_representante VARCHAR(14) NULL,
@@ -238,8 +263,8 @@ CREATE TABLE contratos (
                            periodicidade VARCHAR(100) NULL,
                            tempo_aula VARCHAR(50) NULL,
                            tempo_contrato VARCHAR(50) NULL,
-                           ativo BOOLEAN NOT NULL DEFAULT TRUE,
                            inicio_contrato DATETIME NULL,
+                           vencimento_contrato DATETIME NULL,
                            primeira_aula DATETIME NULL,
                            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                            updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -261,10 +286,28 @@ CREATE TABLE contratos (
                                    ON UPDATE CASCADE
                                    ON DELETE RESTRICT,
 
+                           CONSTRAINT fk_contratos_tipo
+                               FOREIGN KEY (id_tipo_contrato) REFERENCES contratos_tipos (id)
+                                   ON UPDATE CASCADE
+                                   ON DELETE RESTRICT,
+
+                           CONSTRAINT fk_contratos_status
+                               FOREIGN KEY (id_status) REFERENCES contratos_status (id)
+                                   ON UPDATE CASCADE
+                                   ON DELETE RESTRICT,
+
+                           CONSTRAINT fk_contratos_turma
+                               FOREIGN KEY (id_turma) REFERENCES turmas (id)
+                                   ON UPDATE CASCADE
+                                   ON DELETE RESTRICT,
+
                            INDEX idx_contratos_cliente_representante (id_cliente_representante),
                            INDEX idx_contratos_cliente_responsavel (id_cliente_responsavel),
                            INDEX idx_contratos_aluno (id_aluno),
-                           INDEX idx_contratos_ativo (ativo)
+                           INDEX idx_contratos_tipo (id_tipo_contrato),
+                           INDEX idx_contratos_status (id_status),
+                           INDEX idx_contratos_vencimento (vencimento_contrato),
+                           UNIQUE INDEX uq_contratos_id_turma (id_turma)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =========================================================
@@ -402,6 +445,24 @@ CREATE TABLE logs_auditoria (
                                 INDEX idx_logs_auditoria_tabela_registro (tabela_nome, registro_id),
                                 INDEX idx_logs_auditoria_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+INSERT INTO aulas_status (id, nome_status) VALUES
+    (1, 'Pendente'),
+    (2, 'Confirmada'),
+    (3, 'Cancelada'),
+    (4, 'Aula Dada');
+
+INSERT INTO contratos_status (id, nome_status) VALUES
+    (1, 'Ativo'),
+    (2, 'Pendente'),
+    (3, 'Vencido');
+
+INSERT INTO contratos_tipos (id, nome_tipo) VALUES
+    (1, 'Anual'),
+    (2, 'Semestral'),
+    (3, 'Trimestral'),
+    (4, 'Mensal'),
+    (5, 'Temporário');
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -615,7 +676,9 @@ BEGIN
                        'id_cliente_representante', NEW.id_cliente_representante,
                        'id_cliente_responsavel', NEW.id_cliente_responsavel,
                        'id_aluno', NEW.id_aluno,
-                       'tipo_contrato', NEW.tipo_contrato,
+                       'id_tipo_contrato', NEW.id_tipo_contrato,
+                       'id_status', NEW.id_status,
+                       'id_turma', NEW.id_turma,
                        'valor', NEW.valor,
                        'email_representante', NEW.email_representante,
                        'cpf_representante', NEW.cpf_representante,
@@ -630,8 +693,8 @@ BEGIN
                        'periodicidade', NEW.periodicidade,
                        'tempo_aula', NEW.tempo_aula,
                        'tempo_contrato', NEW.tempo_contrato,
-                       'ativo', NEW.ativo,
                        'inicio_contrato', IF(NEW.inicio_contrato IS NULL, NULL, DATE_FORMAT(NEW.inicio_contrato, '%Y-%m-%d %H:%i:%s')),
+                       'vencimento_contrato', IF(NEW.vencimento_contrato IS NULL, NULL, DATE_FORMAT(NEW.vencimento_contrato, '%Y-%m-%d %H:%i:%s')),
                        'primeira_aula', IF(NEW.primeira_aula IS NULL, NULL, DATE_FORMAT(NEW.primeira_aula, '%Y-%m-%d %H:%i:%s')),
                        'created_at', DATE_FORMAT(NEW.created_at, '%Y-%m-%d %H:%i:%s'),
                        'updated_at', DATE_FORMAT(NEW.updated_at, '%Y-%m-%d %H:%i:%s')
@@ -663,7 +726,9 @@ BEGIN
                        'id_cliente_representante', OLD.id_cliente_representante,
                        'id_cliente_responsavel', OLD.id_cliente_responsavel,
                        'id_aluno', OLD.id_aluno,
-                       'tipo_contrato', OLD.tipo_contrato,
+                       'id_tipo_contrato', OLD.id_tipo_contrato,
+                       'id_status', OLD.id_status,
+                       'id_turma', OLD.id_turma,
                        'valor', OLD.valor,
                        'email_representante', OLD.email_representante,
                        'cpf_representante', OLD.cpf_representante,
@@ -678,8 +743,8 @@ BEGIN
                        'periodicidade', OLD.periodicidade,
                        'tempo_aula', OLD.tempo_aula,
                        'tempo_contrato', OLD.tempo_contrato,
-                       'ativo', OLD.ativo,
                        'inicio_contrato', IF(OLD.inicio_contrato IS NULL, NULL, DATE_FORMAT(OLD.inicio_contrato, '%Y-%m-%d %H:%i:%s')),
+                       'vencimento_contrato', IF(OLD.vencimento_contrato IS NULL, NULL, DATE_FORMAT(OLD.vencimento_contrato, '%Y-%m-%d %H:%i:%s')),
                        'primeira_aula', IF(OLD.primeira_aula IS NULL, NULL, DATE_FORMAT(OLD.primeira_aula, '%Y-%m-%d %H:%i:%s')),
                        'created_at', DATE_FORMAT(OLD.created_at, '%Y-%m-%d %H:%i:%s'),
                        'updated_at', DATE_FORMAT(OLD.updated_at, '%Y-%m-%d %H:%i:%s')
@@ -689,7 +754,9 @@ BEGIN
                        'id_cliente_representante', NEW.id_cliente_representante,
                        'id_cliente_responsavel', NEW.id_cliente_responsavel,
                        'id_aluno', NEW.id_aluno,
-                       'tipo_contrato', NEW.tipo_contrato,
+                       'id_tipo_contrato', NEW.id_tipo_contrato,
+                       'id_status', NEW.id_status,
+                       'id_turma', NEW.id_turma,
                        'valor', NEW.valor,
                        'email_representante', NEW.email_representante,
                        'cpf_representante', NEW.cpf_representante,
@@ -704,8 +771,8 @@ BEGIN
                        'periodicidade', NEW.periodicidade,
                        'tempo_aula', NEW.tempo_aula,
                        'tempo_contrato', NEW.tempo_contrato,
-                       'ativo', NEW.ativo,
                        'inicio_contrato', IF(NEW.inicio_contrato IS NULL, NULL, DATE_FORMAT(NEW.inicio_contrato, '%Y-%m-%d %H:%i:%s')),
+                       'vencimento_contrato', IF(NEW.vencimento_contrato IS NULL, NULL, DATE_FORMAT(NEW.vencimento_contrato, '%Y-%m-%d %H:%i:%s')),
                        'primeira_aula', IF(NEW.primeira_aula IS NULL, NULL, DATE_FORMAT(NEW.primeira_aula, '%Y-%m-%d %H:%i:%s')),
                        'created_at', DATE_FORMAT(NEW.created_at, '%Y-%m-%d %H:%i:%s'),
                        'updated_at', DATE_FORMAT(NEW.updated_at, '%Y-%m-%d %H:%i:%s')
@@ -737,7 +804,9 @@ BEGIN
                        'id_cliente_representante', OLD.id_cliente_representante,
                        'id_cliente_responsavel', OLD.id_cliente_responsavel,
                        'id_aluno', OLD.id_aluno,
-                       'tipo_contrato', OLD.tipo_contrato,
+                       'id_tipo_contrato', OLD.id_tipo_contrato,
+                       'id_status', OLD.id_status,
+                       'id_turma', OLD.id_turma,
                        'valor', OLD.valor,
                        'email_representante', OLD.email_representante,
                        'cpf_representante', OLD.cpf_representante,
@@ -752,8 +821,8 @@ BEGIN
                        'periodicidade', OLD.periodicidade,
                        'tempo_aula', OLD.tempo_aula,
                        'tempo_contrato', OLD.tempo_contrato,
-                       'ativo', OLD.ativo,
                        'inicio_contrato', IF(OLD.inicio_contrato IS NULL, NULL, DATE_FORMAT(OLD.inicio_contrato, '%Y-%m-%d %H:%i:%s')),
+                       'vencimento_contrato', IF(OLD.vencimento_contrato IS NULL, NULL, DATE_FORMAT(OLD.vencimento_contrato, '%Y-%m-%d %H:%i:%s')),
                        'primeira_aula', IF(OLD.primeira_aula IS NULL, NULL, DATE_FORMAT(OLD.primeira_aula, '%Y-%m-%d %H:%i:%s')),
                        'created_at', DATE_FORMAT(OLD.created_at, '%Y-%m-%d %H:%i:%s'),
                        'updated_at', DATE_FORMAT(OLD.updated_at, '%Y-%m-%d %H:%i:%s')

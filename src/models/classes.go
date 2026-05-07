@@ -20,8 +20,11 @@ type Class struct {
 }
 
 type CreatePrivateClassRequest struct {
-	StudentID uint64  `json:"student_id"`
-	TeacherID *uint64 `json:"teacher_id,omitempty"`
+	StudentID       uint64  `json:"student_id"`
+	TeacherID       *uint64 `json:"teacher_id,omitempty"`
+	Name            string  `json:"name,omitempty"`
+	RecurrenceDesc  string  `json:"recurrence_desc,omitempty"`
+	RecurrenceJSON  string  `json:"recurrence_json,omitempty"`
 }
 
 func (c *Class) Prepare() error {

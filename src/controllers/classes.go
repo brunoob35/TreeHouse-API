@@ -2,9 +2,11 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
@@ -292,6 +294,21 @@ func CreatePrivateClassFromStudent(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if request.StudentID == 0 {
+		responses.Err(w, http.StatusBadRequest, errors.New("student_id is required"))
+		return
+	}
+
+	class := models.Class{
+		TeacherID:      request.TeacherID,
+		Name:           request.Name,
+		RecurrenceDesc: request.RecurrenceDesc,
+		RecurrenceJSON: request.RecurrenceJSON,
+	}
+	if strings.TrimSpace(class.Name) == "" {
+		class.Name = "Turma"
+	}
+
+	if err = class.Prepare(); err != nil {
 		responses.Err(w, http.StatusBadRequest, err)
 		return
 	}
@@ -304,19 +321,27 @@ func CreatePrivateClassFromStudent(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repository := repositories.NewClassesRepository(db)
-	classID, err := repository.CreatePrivateClassFromStudent(request.StudentID, request.TeacherID)
+	classID, generatedLessonsCount, err := repository.CreatePrivateClassFromStudent(request.StudentID, class)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	class, err := repository.FetchByID(classID)
+	fetchedClass, err := repository.FetchByID(classID)
 	if err != nil {
 		responses.JSON(w, http.StatusCreated, map[string]interface{}{
 			"id": classID,
+			"generated_lessons_count": generatedLessonsCount,
 		})
 		return
 	}
 
-	responses.JSON(w, http.StatusCreated, class)
+	responses.JSON(w, http.StatusCreated, map[string]interface{}{
+		"id":                      fetchedClass.ID,
+		"teacher_id":              fetchedClass.TeacherID,
+		"name":                    fetchedClass.Name,
+		"recurrence_desc":         fetchedClass.RecurrenceDesc,
+		"recurrence_json":         fetchedClass.RecurrenceJSON,
+		"generated_lessons_count": generatedLessonsCount,
+	})
 }
