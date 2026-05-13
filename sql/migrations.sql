@@ -1107,3 +1107,69 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+
+-- =========================================================
+-- DADOS INICIAIS / BOOTSTRAP
+-- =========================================================
+
+-- IMPORTANTE:
+-- Os IDs abaixo sao bit flags e devem continuar sendo potencias de 2.
+INSERT INTO permissoes (id, nome) VALUES
+    (1, 'gestao'),
+    (2, 'professor'),
+    (4, 'gestao master');
+
+INSERT INTO aulas_status (id, nome_status) VALUES
+    (1, 'pendente'),
+    (2, 'realizada'),
+    (3, 'cancelada'),
+    (4, 'remarcada'),
+    (5, 'pendente reagendamento'),
+    (6, 'indenizada');
+
+INSERT INTO contratos_status (id, nome_status) VALUES
+    (1, 'Ativo'),
+    (2, 'Pendente'),
+    (3, 'Vencido');
+
+INSERT INTO contratos_tipos (id, nome_tipo) VALUES
+    (1, 'Anual'),
+    (2, 'Semestral'),
+    (3, 'Trimestral'),
+    (4, 'Mensal'),
+    (5, 'Temporário');
+
+SET @ano_letivo_atual = YEAR(CURDATE());
+INSERT INTO anos_letivos (nome, data_inicio, data_fim, ativo)
+VALUES (
+    CONCAT('Ano letivo ', @ano_letivo_atual),
+    STR_TO_DATE(CONCAT(@ano_letivo_atual, '-01-01'), '%Y-%m-%d'),
+    STR_TO_DATE(CONCAT(@ano_letivo_atual, '-12-31'), '%Y-%m-%d'),
+    TRUE
+);
+
+INSERT INTO usuarios (
+    senha,
+    nome,
+    email,
+    ativo,
+    cpf,
+    rg,
+    telefone
+) VALUES (
+    '$2a$10$CUVvBDlzrD4OaupBNBq6TOEgJzDkabAP8RKW5/uz.qRo9jGK7fn2a',
+    'Bruno Schmaiske Quoos',
+    'bruno_schmaiske_quoos@hotmail.com',
+    TRUE,
+    '19262973004',
+    '273284101',
+    '41996630496'
+);
+
+SET @gestor_master_id = LAST_INSERT_ID();
+
+INSERT INTO usuarios_permissoes (id_usuario, id_permissao)
+VALUES
+    (@gestor_master_id, 1),
+    (@gestor_master_id, 4);
