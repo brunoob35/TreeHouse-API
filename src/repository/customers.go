@@ -225,6 +225,7 @@ func (r *CustomersRepository) FetchAll(search string) ([]models.Customer, error)
 	var customers []models.Customer
 	for rows.Next() {
 		var customer models.Customer
+		var nascimento sql.NullTime
 
 		err = rows.Scan(
 			&customer.ID,
@@ -233,7 +234,7 @@ func (r *CustomersRepository) FetchAll(search string) ([]models.Customer, error)
 			&customer.Email,
 			&customer.Telefone,
 			&customer.RG,
-			&customer.Nascimento,
+			&nascimento,
 			&customer.Ativo,
 			&customer.StudentsCount,
 			&customer.ContractsCount,
@@ -242,6 +243,10 @@ func (r *CustomersRepository) FetchAll(search string) ([]models.Customer, error)
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		if nascimento.Valid {
+			customer.Nascimento = &nascimento.Time
 		}
 
 		customers = append(customers, customer)
@@ -287,6 +292,7 @@ func (r *CustomersRepository) FetchByID(id uint64) (models.Customer, error) {
 	`
 
 	var customer models.Customer
+	var nascimento sql.NullTime
 	err := r.db.QueryRow(query, id).Scan(
 		&customer.ID,
 		&customer.Nome,
@@ -294,7 +300,7 @@ func (r *CustomersRepository) FetchByID(id uint64) (models.Customer, error) {
 		&customer.Email,
 		&customer.Telefone,
 		&customer.RG,
-		&customer.Nascimento,
+		&nascimento,
 		&customer.Ativo,
 		&customer.StudentsCount,
 		&customer.ContractsCount,
@@ -306,6 +312,10 @@ func (r *CustomersRepository) FetchByID(id uint64) (models.Customer, error) {
 			return models.Customer{}, sql.ErrNoRows
 		}
 		return models.Customer{}, err
+	}
+
+	if nascimento.Valid {
+		customer.Nascimento = &nascimento.Time
 	}
 
 	return customer, nil
@@ -562,18 +572,31 @@ func (r *CustomersRepository) FetchStudents(customerID uint64) ([]models.Student
 	var students []models.Student
 	for rows.Next() {
 		var student models.Student
+		var livro sql.NullString
+		var alfabetizacao sql.NullString
+		var nascimento sql.NullTime
 		err = rows.Scan(
 			&student.ID,
 			&student.Nome,
-			&student.Livro,
-			&student.Alfabetizacao,
-			&student.Nascimento,
+			&livro,
+			&alfabetizacao,
+			&nascimento,
 			&student.Ativo,
 			&student.CreatedAt,
 			&student.UpdatedAt,
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		if livro.Valid {
+			student.Livro = livro.String
+		}
+		if alfabetizacao.Valid {
+			student.Alfabetizacao = alfabetizacao.String
+		}
+		if nascimento.Valid {
+			student.Nascimento = &nascimento.Time
 		}
 
 		students = append(students, student)
@@ -616,14 +639,19 @@ func (r *CustomersRepository) FetchAddresses(customerID uint64) ([]models.Addres
 	var addresses []models.Address
 	for rows.Next() {
 		var address models.Address
+		var rua sql.NullString
+		var numero sql.NullString
+		var bairro sql.NullString
+		var cidade sql.NullString
+		var estado sql.NullString
 		err = rows.Scan(
 			&address.ID,
 			&address.CEP,
-			&address.Rua,
-			&address.Numero,
-			&address.Bairro,
-			&address.Cidade,
-			&address.Estado,
+			&rua,
+			&numero,
+			&bairro,
+			&cidade,
+			&estado,
 			&address.Pais,
 			&address.Complemento,
 			&address.CreatedAt,
@@ -631,6 +659,22 @@ func (r *CustomersRepository) FetchAddresses(customerID uint64) ([]models.Addres
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		if rua.Valid {
+			address.Rua = rua.String
+		}
+		if numero.Valid {
+			address.Numero = numero.String
+		}
+		if bairro.Valid {
+			address.Bairro = bairro.String
+		}
+		if cidade.Valid {
+			address.Cidade = cidade.String
+		}
+		if estado.Valid {
+			address.Estado = estado.String
 		}
 
 		addresses = append(addresses, address)

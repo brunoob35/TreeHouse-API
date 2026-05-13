@@ -110,13 +110,16 @@ func (r *StudentsRepository) FetchAll(nome string) ([]models.Student, error) {
 
 	for rows.Next() {
 		var student models.Student
+		var livro sql.NullString
+		var alfabetizacao sql.NullString
+		var nascimento sql.NullTime
 
 		err = rows.Scan(
 			&student.ID,
 			&student.Nome,
-			&student.Livro,
-			&student.Alfabetizacao,
-			&student.Nascimento,
+			&livro,
+			&alfabetizacao,
+			&nascimento,
 			&student.Responsavel,
 			&student.ResponsavelTelefone,
 			&student.ClassesCount,
@@ -126,6 +129,16 @@ func (r *StudentsRepository) FetchAll(nome string) ([]models.Student, error) {
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		if livro.Valid {
+			student.Livro = livro.String
+		}
+		if alfabetizacao.Valid {
+			student.Alfabetizacao = alfabetizacao.String
+		}
+		if nascimento.Valid {
+			student.Nascimento = &nascimento.Time
 		}
 
 		students = append(students, student)
@@ -157,13 +170,16 @@ func (r *StudentsRepository) FetchByID(id uint64) (models.Student, error) {
 	`
 
 	var student models.Student
+	var livro sql.NullString
+	var alfabetizacao sql.NullString
+	var nascimento sql.NullTime
 
 	err := r.db.QueryRow(query, id).Scan(
 		&student.ID,
 		&student.Nome,
-		&student.Livro,
-		&student.Alfabetizacao,
-		&student.Nascimento,
+		&livro,
+		&alfabetizacao,
+		&nascimento,
 		&student.Ativo,
 		&student.CreatedAt,
 		&student.UpdatedAt,
@@ -174,6 +190,16 @@ func (r *StudentsRepository) FetchByID(id uint64) (models.Student, error) {
 			return models.Student{}, sql.ErrNoRows
 		}
 		return models.Student{}, err
+	}
+
+	if livro.Valid {
+		student.Livro = livro.String
+	}
+	if alfabetizacao.Valid {
+		student.Alfabetizacao = alfabetizacao.String
+	}
+	if nascimento.Valid {
+		student.Nascimento = &nascimento.Time
 	}
 
 	return student, nil
@@ -255,12 +281,15 @@ func (r *StudentsRepository) SoftDelete(id uint64) error {
 // including inactive ones for historical review.
 func (r *StudentsRepository) FetchClasses(studentID uint64) ([]models.Class, error) {
 	query := `
-		SELECT
+	SELECT
 			t.id,
 			t.id_professor,
 			t.nome,
 			t.descricao_recorrencia,
 			t.recorrencia_json,
+			(SELECT COUNT(*) FROM treehousedb.alunos_turmas at2 WHERE at2.id_turma = t.id) AS student_count,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = t.id) AS lessons_total,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = t.id AND a.id_status = 2) AS lessons_completed,
 			t.created_at,
 			t.updated_at,
 			t.deleted_at
@@ -294,6 +323,9 @@ func (r *StudentsRepository) FetchClasses(studentID uint64) ([]models.Class, err
 			&class.Name,
 			&recurrenceDesc,
 			&recurrenceJSON,
+			&class.StudentCount,
+			&class.LessonsTotal,
+			&class.LessonsCompleted,
 			&class.CreatedAt,
 			&class.UpdatedAt,
 			&deletedAt,

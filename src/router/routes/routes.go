@@ -34,6 +34,7 @@ func Config(r *mux.Router) *mux.Router {
 	routes = append(routes, professorsRoutes...)
 	routes = append(routes, classesRoutes...)
 	routes = append(routes, lessonRoutes...)
+	routes = append(routes, dashboardRoutes...)
 
 	for _, route := range routes {
 		handler := route.Function

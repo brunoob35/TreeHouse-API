@@ -21,6 +21,24 @@ type updateLessonStatusRequest struct {
 	StatusID uint64 `json:"status_id"`
 }
 
+func FetchLessonStatuses(w http.ResponseWriter, r *http.Request) {
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repository := repositories.NewLessonsRepository(db)
+	statuses, err := repository.FetchStatuses()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, statuses)
+}
+
 func CreateLesson(w http.ResponseWriter, r *http.Request) {
 	bodyRequest, err := io.ReadAll(r.Body)
 	if err != nil {

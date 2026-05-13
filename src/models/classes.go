@@ -12,6 +12,9 @@ type Class struct {
 	Name           string     `json:"name"`
 	RecurrenceDesc string     `json:"recurrence_desc,omitempty"`
 	RecurrenceJSON string     `json:"recurrence_json,omitempty"`
+	StudentCount   uint64     `json:"student_count,omitempty"`
+	LessonsTotal   uint64     `json:"lessons_total,omitempty"`
+	LessonsCompleted uint64   `json:"lessons_completed,omitempty"`
 	CreatedAt      time.Time  `json:"created_at,omitempty"`
 	UpdatedAt      time.Time  `json:"updated_at,omitempty"`
 	DeletedAt      *time.Time `json:"deleted_at,omitempty"`

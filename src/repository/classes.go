@@ -16,6 +16,8 @@ type ClassesRepository struct {
 	db *sql.DB
 }
 
+const lessonStatusAulaDada uint64 = 2
+
 func NewClassesRepository(db *sql.DB) *ClassesRepository {
 	return &ClassesRepository{db}
 }
@@ -273,16 +275,19 @@ func (r ClassesRepository) FetchByID(classID uint64) (models.Class, error) {
 
 func (r ClassesRepository) FetchAllActive() ([]models.Class, error) {
 	query := `
-		SELECT
+	SELECT
 			id,
 			id_professor,
 			nome,
 			descricao_recorrencia,
 			recorrencia_json,
+			(SELECT COUNT(*) FROM treehousedb.alunos_turmas at WHERE at.id_turma = turmas.id) AS student_count,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = turmas.id) AS lessons_total,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = turmas.id AND a.id_status = 2) AS lessons_completed,
 			created_at,
 			updated_at,
 			deleted_at
-		FROM treehousedb.turmas
+		FROM treehousedb.turmas turmas
 		WHERE deleted_at IS NULL
 		ORDER BY nome ASC
 	`
@@ -308,6 +313,9 @@ func (r ClassesRepository) FetchAllActive() ([]models.Class, error) {
 			&class.Name,
 			&recurrenceDesc,
 			&recurrenceJSON,
+			&class.StudentCount,
+			&class.LessonsTotal,
+			&class.LessonsCompleted,
 			&class.CreatedAt,
 			&class.UpdatedAt,
 			&deletedAt,
@@ -340,16 +348,19 @@ func (r ClassesRepository) FetchAllActive() ([]models.Class, error) {
 
 func (r ClassesRepository) FetchAll() ([]models.Class, error) {
 	query := `
-		SELECT
+	SELECT
 			id,
 			id_professor,
 			nome,
 			descricao_recorrencia,
 			recorrencia_json,
+			(SELECT COUNT(*) FROM treehousedb.alunos_turmas at WHERE at.id_turma = turmas.id) AS student_count,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = turmas.id) AS lessons_total,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = turmas.id AND a.id_status = 2) AS lessons_completed,
 			created_at,
 			updated_at,
 			deleted_at
-		FROM treehousedb.turmas
+		FROM treehousedb.turmas turmas
 		ORDER BY nome ASC
 	`
 
@@ -374,6 +385,9 @@ func (r ClassesRepository) FetchAll() ([]models.Class, error) {
 			&class.Name,
 			&recurrenceDesc,
 			&recurrenceJSON,
+			&class.StudentCount,
+			&class.LessonsTotal,
+			&class.LessonsCompleted,
 			&class.CreatedAt,
 			&class.UpdatedAt,
 			&deletedAt,
@@ -804,20 +818,20 @@ func deleteOpenLessonsByClassTx(tx *sql.Tx, classID uint64) error {
 		FROM treehousedb.alunos_aulas aa
 		INNER JOIN treehousedb.aulas a ON a.id = aa.id_aula
 		WHERE a.id_turma = ?
-		  AND a.id_status <> 2
+		  AND a.id_status <> ?
 	`
 
-	if _, err := tx.Exec(queryDeleteRelations, classID); err != nil {
+	if _, err := tx.Exec(queryDeleteRelations, classID, lessonStatusAulaDada); err != nil {
 		return err
 	}
 
 	queryDeleteLessons := `
 		DELETE FROM treehousedb.aulas
 		WHERE id_turma = ?
-		  AND id_status <> 2
+		  AND id_status <> ?
 	`
 
-	_, err := tx.Exec(queryDeleteLessons, classID)
+	_, err := tx.Exec(queryDeleteLessons, classID, lessonStatusAulaDada)
 	return err
 }
 
@@ -828,10 +842,10 @@ func cancelOpenLessonsByClassTx(tx *sql.Tx, classID uint64) error {
 			id_status = 3,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id_turma = ?
-		  AND id_status <> 2
+		  AND id_status <> ?
 	`
 
-	_, err := tx.Exec(query, classID)
+	_, err := tx.Exec(query, classID, lessonStatusAulaDada)
 	return err
 }
 
@@ -842,7 +856,7 @@ func updateOpenLessonsTeacherByClassTx(tx *sql.Tx, classID uint64, teacherID *ui
 			id_professor = ?,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id_turma = ?
-		  AND id_status <> 2
+		  AND id_status <> ?
 	`
 
 	var teacher interface{}
@@ -850,7 +864,7 @@ func updateOpenLessonsTeacherByClassTx(tx *sql.Tx, classID uint64, teacherID *ui
 		teacher = *teacherID
 	}
 
-	_, err := tx.Exec(query, teacher, classID)
+	_, err := tx.Exec(query, teacher, classID, lessonStatusAulaDada)
 	return err
 }
 

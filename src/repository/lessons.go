@@ -14,6 +14,31 @@ func NewLessonsRepository(db *sql.DB) *LessonsRepository {
 	return &LessonsRepository{db}
 }
 
+func (r LessonsRepository) FetchStatuses() ([]models.LessonStatus, error) {
+	query := `
+		SELECT id, nome_status
+		FROM treehousedb.aulas_status
+		ORDER BY id
+	`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var statuses []models.LessonStatus
+	for rows.Next() {
+		var status models.LessonStatus
+		if err = rows.Scan(&status.ID, &status.Name); err != nil {
+			return nil, err
+		}
+		statuses = append(statuses, status)
+	}
+
+	return statuses, rows.Err()
+}
+
 func (r LessonsRepository) Create(lesson models.Lesson) (uint64, error) {
 	tx, err := r.db.Begin()
 	if err != nil {

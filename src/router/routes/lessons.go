@@ -29,6 +29,16 @@ var lessonRoutes = []Routes{
 		},
 	},
 	{
+		URI:      "/lessons/statuses",
+		Method:   http.MethodGet,
+		Function: controllers.FetchLessonStatuses,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+		},
+	},
+	{
 		URI:      "/lessons/{lessonID}",
 		Method:   http.MethodGet,
 		Function: controllers.FetchLesson,

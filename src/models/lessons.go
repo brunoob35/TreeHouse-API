@@ -23,6 +23,11 @@ type Lesson struct {
 	Students []Student `json:"students,omitempty"`
 }
 
+type LessonStatus struct {
+	ID   uint64 `json:"id"`
+	Name string `json:"nome_status"`
+}
+
 func (l *Lesson) Prepare() error {
 	l.Subject = strings.TrimSpace(l.Subject)
 	l.Vocabulary = strings.TrimSpace(l.Vocabulary)
