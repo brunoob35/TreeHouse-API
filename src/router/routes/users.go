@@ -19,9 +19,9 @@ var userRoutes = []Routes{
 		Method:   http.MethodPost,
 		Function: controllers.CreateGestor,
 		Auth:     true,
-		Permissions: []authentication.Permission{
-			authentication.PermGestaoMaster,
-		},
+		// Permissions: []authentication.Permission{
+		// 	authentication.PermGestaoMaster,
+		// },
 	},
 	{
 		URI:      "/users",
