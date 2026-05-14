@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
@@ -19,6 +20,10 @@ type addStudentToLessonRequest struct {
 
 type updateLessonStatusRequest struct {
 	StatusID uint64 `json:"status_id"`
+}
+
+type requestLessonRescheduleRequest struct {
+	RequestedLessonDate time.Time `json:"requested_lesson_date"`
 }
 
 func FetchLessonStatuses(w http.ResponseWriter, r *http.Request) {
@@ -351,4 +356,111 @@ func UpdateLessonStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses.JSON(w, http.StatusNoContent, nil)
+}
+
+func RequestLessonReschedule(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	lessonID, err := strconv.ParseUint(params["lessonID"], 10, 64)
+	if err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	bodyRequest, err := io.ReadAll(r.Body)
+	if err != nil {
+		responses.Err(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	var request requestLessonRescheduleRequest
+	if err = json.Unmarshal(bodyRequest, &request); err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if request.RequestedLessonDate.IsZero() {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repository := repositories.NewLessonsRepository(db)
+	if err = repository.RequestReschedule(lessonID, request.RequestedLessonDate); err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	updatedLesson, fetchErr := repository.FetchByID(lessonID)
+	if fetchErr != nil {
+		responses.JSON(w, http.StatusOK, map[string]any{"id": lessonID})
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, updatedLesson)
+}
+
+func ApproveLessonReschedule(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	lessonID, err := strconv.ParseUint(params["lessonID"], 10, 64)
+	if err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repository := repositories.NewLessonsRepository(db)
+	if err = repository.ApproveReschedule(lessonID); err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	updatedLesson, fetchErr := repository.FetchByID(lessonID)
+	if fetchErr != nil {
+		responses.JSON(w, http.StatusOK, map[string]any{"id": lessonID})
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, updatedLesson)
+}
+
+func RejectLessonReschedule(w http.ResponseWriter, r *http.Request) {
+	params := mux.Vars(r)
+	lessonID, err := strconv.ParseUint(params["lessonID"], 10, 64)
+	if err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repository := repositories.NewLessonsRepository(db)
+	if err = repository.RejectReschedule(lessonID); err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	updatedLesson, fetchErr := repository.FetchByID(lessonID)
+	if fetchErr != nil {
+		responses.JSON(w, http.StatusOK, map[string]any{"id": lessonID})
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, updatedLesson)
 }

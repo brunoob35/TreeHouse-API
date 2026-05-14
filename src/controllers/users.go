@@ -15,51 +15,6 @@ import (
 	"github.com/gorilla/mux"
 )
 
-// CreateUser is responsible for creating a new user.
-// This flow:
-//   - reads the request body
-//   - parses the incoming JSON into a user struct
-//   - prepares and validates the user data
-//   - inserts the base user record into the database
-//
-// Permission assignments are not handled here and must be managed separately
-// through the relation table "usuarios_permissoes".
-func CreateUser(w http.ResponseWriter, r *http.Request) {
-	bodyRequest, err := io.ReadAll(r.Body)
-	if err != nil {
-		responses.Err(w, http.StatusUnprocessableEntity, err)
-		return
-	}
-
-	var newUser models.User
-	if err = json.Unmarshal(bodyRequest, &newUser); err != nil {
-		responses.Err(w, http.StatusBadRequest, err)
-		return
-	}
-
-	if err = newUser.Prepare("create"); err != nil {
-		responses.Err(w, http.StatusBadRequest, err)
-		return
-	}
-
-	db, err := persistency.Connect()
-	if err != nil {
-		responses.Err(w, http.StatusInternalServerError, err)
-		return
-	}
-	defer db.Close()
-
-	repo := repositories.NewUsersRepository(db)
-
-	newUser.ID, err = repo.Insert(newUser)
-	if err != nil {
-		responses.Err(w, http.StatusInternalServerError, err)
-		return
-	}
-
-	responses.JSON(w, http.StatusCreated, newUser)
-}
-
 // CreateGestor creates a new user and automatically associates permission 1.
 // The function calls createUserWithPermission and gives the respective valid permission ID
 func CreateGestor(w http.ResponseWriter, r *http.Request) {

@@ -7,18 +7,20 @@ import (
 )
 
 type Lesson struct {
-	ID         uint64    `json:"id,omitempty"`
-	StatusID   uint64    `json:"status_id,omitempty"`
-	StatusName string    `json:"status_name,omitempty"`
-	TeacherID  *uint64   `json:"teacher_id,omitempty"`
-	ClassID    uint64    `json:"class_id"`
-	Subject    string    `json:"subject,omitempty"`
-	Vocabulary string    `json:"vocabulary,omitempty"`
-	Balance    string    `json:"balance,omitempty"`
-	Notes      string    `json:"notes,omitempty"`
-	LessonDate time.Time `json:"lesson_date"`
-	CreatedAt  time.Time `json:"created_at,omitempty"`
-	UpdatedAt  time.Time `json:"updated_at,omitempty"`
+	ID                  uint64     `json:"id,omitempty"`
+	StatusID            uint64     `json:"status_id,omitempty"`
+	StatusName          string     `json:"status_name,omitempty"`
+	TeacherID           *uint64    `json:"teacher_id,omitempty"`
+	ClassID             uint64     `json:"class_id"`
+	Subject             string     `json:"subject,omitempty"`
+	Vocabulary          string     `json:"vocabulary,omitempty"`
+	Balance             string     `json:"balance,omitempty"`
+	Notes               string     `json:"notes,omitempty"`
+	LessonDate          time.Time  `json:"lesson_date"`
+	OriginalLessonDate  *time.Time `json:"original_lesson_date,omitempty"`
+	RequestedLessonDate *time.Time `json:"requested_lesson_date,omitempty"`
+	CreatedAt           time.Time  `json:"created_at,omitempty"`
+	UpdatedAt           time.Time  `json:"updated_at,omitempty"`
 
 	Students []Student `json:"students,omitempty"`
 }

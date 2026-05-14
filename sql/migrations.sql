@@ -216,6 +216,8 @@ CREATE TABLE aulas (
                        saldo TEXT NULL,
                        observacoes TEXT NULL,
                        data_aula DATETIME NOT NULL,
+                       data_aula_original DATETIME NULL,
+                       data_aula_solicitada DATETIME NULL,
                        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
                        updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 
@@ -525,24 +527,6 @@ FROM contratos c
                     ON ct.id = c.id_tipo_contrato
          INNER JOIN contratos_status cs
                     ON cs.id = c.id_status;
-
-INSERT INTO aulas_status (id, nome_status) VALUES
-    (1, 'Pendente'),
-    (2, 'Confirmada'),
-    (3, 'Cancelada'),
-    (4, 'Aula Dada');
-
-INSERT INTO contratos_status (id, nome_status) VALUES
-    (1, 'Ativo'),
-    (2, 'Pendente'),
-    (3, 'Vencido');
-
-INSERT INTO contratos_tipos (id, nome_tipo) VALUES
-    (1, 'Anual'),
-    (2, 'Semestral'),
-    (3, 'Trimestral'),
-    (4, 'Mensal'),
-    (5, 'Temporário');
 
 SET FOREIGN_KEY_CHECKS = 1;
 
@@ -1153,23 +1137,24 @@ INSERT INTO usuarios (
     senha,
     nome,
     email,
-    ativo,
     cpf,
     rg,
-    telefone
+    telefone,
+    ativo,
+    nascimento
 ) VALUES (
-    '$2a$10$CUVvBDlzrD4OaupBNBq6TOEgJzDkabAP8RKW5/uz.qRo9jGK7fn2a',
+    '$2a$10$U4iUCOiy80qgD.caqN4Rje3D3zrZymbvZC3zKTyhzSKacd.LQpysS',
     'Bruno Schmaiske Quoos',
     'bruno_schmaiske_quoos@hotmail.com',
+    '09863233900',
+    '133396543',
+    '43996630496',
     TRUE,
-    '19262973004',
-    '273284101',
-    '41996630496'
+    '1997-04-30'
 );
 
 SET @gestor_master_id = LAST_INSERT_ID();
-
-INSERT INTO usuarios_permissoes (id_usuario, id_permissao)
-VALUES
+INSERT INTO usuarios_permissoes (id_usuario, id_permissao) VALUES
     (@gestor_master_id, 1),
     (@gestor_master_id, 4);
+

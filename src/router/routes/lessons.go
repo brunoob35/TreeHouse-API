@@ -79,6 +79,36 @@ var lessonRoutes = []Routes{
 		},
 	},
 	{
+		URI:      "/lessons/{lessonID}/reschedule-request",
+		Method:   http.MethodPatch,
+		Function: controllers.RequestLessonReschedule,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+		},
+	},
+	{
+		URI:      "/lessons/{lessonID}/reschedule-approve",
+		Method:   http.MethodPatch,
+		Function: controllers.ApproveLessonReschedule,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+		},
+	},
+	{
+		URI:      "/lessons/{lessonID}/reschedule-reject",
+		Method:   http.MethodPatch,
+		Function: controllers.RejectLessonReschedule,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+		},
+	},
+	{
 		URI:      "/lessons/{lessonID}/students",
 		Method:   http.MethodGet,
 		Function: controllers.FetchLessonStudents,

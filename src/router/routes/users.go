@@ -9,19 +9,13 @@ import (
 
 var userRoutes = []Routes{
 	{
-		URI:      "/users",
-		Method:   http.MethodPost,
-		Function: controllers.CreateUser,
-		Auth:     false,
-	},
-	{
 		URI:      "/users/gestor",
 		Method:   http.MethodPost,
 		Function: controllers.CreateGestor,
-		// Auth:     true,
-		// Permissions: []authentication.Permission{
-		// 	authentication.PermGestaoMaster,
-		// },
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestaoMaster,
+		},
 	},
 	{
 		URI:      "/users",
