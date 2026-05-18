@@ -25,4 +25,10 @@ var loginRoutes = []Routes{
 		Function: controllers.ResetPassword,
 		Auth:     false,
 	},
+	{
+		URI:      "/auth/first-access",
+		Method:   http.MethodPost,
+		Function: controllers.CompleteFirstAccess,
+		Auth:     false,
+	},
 }

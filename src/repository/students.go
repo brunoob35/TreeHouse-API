@@ -356,3 +356,71 @@ func (r *StudentsRepository) FetchClasses(studentID uint64) ([]models.Class, err
 
 	return classes, nil
 }
+
+func (r *StudentsRepository) FetchByTeacherID(teacherID uint64) ([]models.ProfessorStudentSummary, error) {
+	query := `
+		SELECT
+			a.id,
+			a.nome,
+			a.ativo,
+			t.id,
+			t.nome,
+			COUNT(DISTINCT CASE WHEN aa.id_aula IS NOT NULL AND aula.id_status = 2 THEN aula.id END) AS lessons_completed,
+			COUNT(DISTINCT aula.id) AS lessons_total
+		FROM treehousedb.turmas t
+		INNER JOIN treehousedb.alunos_turmas at
+			ON at.id_turma = t.id
+		INNER JOIN treehousedb.alunos a
+			ON a.id = at.id_aluno
+		LEFT JOIN treehousedb.aulas aula
+			ON aula.id_turma = t.id
+		LEFT JOIN treehousedb.alunos_aulas aa
+			ON aa.id_aula = aula.id
+		   AND aa.id_aluno = a.id
+		WHERE t.deleted_at IS NULL
+		  AND t.id_professor = ?
+		GROUP BY
+			a.id,
+			a.nome,
+			a.ativo,
+			t.id,
+			t.nome
+		ORDER BY a.nome ASC, t.nome ASC
+	`
+
+	rows, err := r.db.Query(query, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var students []models.ProfessorStudentSummary
+
+	for rows.Next() {
+		var student models.ProfessorStudentSummary
+
+		if err = rows.Scan(
+			&student.ID,
+			&student.Nome,
+			&student.Ativo,
+			&student.ClassID,
+			&student.ClassName,
+			&student.LessonsCompleted,
+			&student.LessonsTotal,
+		); err != nil {
+			return nil, err
+		}
+
+		if student.LessonsTotal > 0 {
+			student.FrequencyPercentage = (float64(student.LessonsCompleted) / float64(student.LessonsTotal)) * 100
+		}
+
+		students = append(students, student)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return students, nil
+}

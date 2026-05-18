@@ -65,10 +65,6 @@ func (user *User) validate(step string) error {
 		}
 	}
 
-	if step == "create" && user.Senha == "" {
-		return errors.New("a senha é obrigatória")
-	}
-
 	return nil
 }
 

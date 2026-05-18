@@ -76,6 +76,7 @@ var lessonRoutes = []Routes{
 		Permissions: []authentication.Permission{
 			authentication.PermGestao,
 			authentication.PermGestaoMaster,
+			authentication.PermProfessor,
 		},
 	},
 	{

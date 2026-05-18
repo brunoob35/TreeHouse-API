@@ -405,6 +405,102 @@ func (r LessonsRepository) FetchByClass(classID uint64) ([]models.Lesson, error)
 	return lessons, nil
 }
 
+func (r LessonsRepository) FetchByTeacherID(teacherID uint64) ([]models.Lesson, error) {
+	query := `
+		SELECT
+			a.id,
+			a.id_status,
+			(SELECT nome_status FROM treehousedb.aulas_status WHERE id = a.id_status) AS status_name,
+			a.id_professor,
+			a.id_turma,
+			a.assunto,
+			a.vocabulario,
+			a.saldo,
+			a.observacoes,
+			a.data_aula,
+			a.data_aula_original,
+			a.data_aula_solicitada,
+			a.created_at,
+			a.updated_at
+		FROM treehousedb.aulas a
+		INNER JOIN treehousedb.turmas t ON t.id = a.id_turma
+		WHERE a.id_professor = ?
+		   OR t.id_professor = ?
+		ORDER BY a.data_aula ASC, a.id ASC
+	`
+
+	rows, err := r.db.Query(query, teacherID, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var lessons []models.Lesson
+
+	for rows.Next() {
+		var lesson models.Lesson
+		var scannedTeacherID sql.NullInt64
+		var statusName sql.NullString
+		var subject sql.NullString
+		var vocabulary sql.NullString
+		var balance sql.NullString
+		var notes sql.NullString
+		var originalLessonDate sql.NullTime
+		var requestedLessonDate sql.NullTime
+
+		if err = rows.Scan(
+			&lesson.ID,
+			&lesson.StatusID,
+			&statusName,
+			&scannedTeacherID,
+			&lesson.ClassID,
+			&subject,
+			&vocabulary,
+			&balance,
+			&notes,
+			&lesson.LessonDate,
+			&originalLessonDate,
+			&requestedLessonDate,
+			&lesson.CreatedAt,
+			&lesson.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+
+		if scannedTeacherID.Valid {
+			tid := uint64(scannedTeacherID.Int64)
+			lesson.TeacherID = &tid
+		}
+		if statusName.Valid {
+			lesson.StatusName = statusName.String
+		}
+		if subject.Valid {
+			lesson.Subject = subject.String
+		}
+		if vocabulary.Valid {
+			lesson.Vocabulary = vocabulary.String
+		}
+		if balance.Valid {
+			lesson.Balance = balance.String
+		}
+		if notes.Valid {
+			lesson.Notes = notes.String
+		}
+		if originalLessonDate.Valid {
+			original := originalLessonDate.Time
+			lesson.OriginalLessonDate = &original
+		}
+		if requestedLessonDate.Valid {
+			requested := requestedLessonDate.Time
+			lesson.RequestedLessonDate = &requested
+		}
+
+		lessons = append(lessons, lesson)
+	}
+
+	return lessons, nil
+}
+
 func (r LessonsRepository) Update(lessonID uint64, lesson models.Lesson) error {
 	query := `
 		UPDATE treehousedb.aulas
@@ -532,6 +628,26 @@ func (r LessonsRepository) FetchStudents(lessonID uint64) ([]models.Student, err
 	}
 
 	return students, nil
+}
+
+func (r LessonsRepository) BelongsToTeacher(lessonID uint64, teacherID uint64) (bool, error) {
+	query := `
+		SELECT COUNT(*)
+		FROM treehousedb.aulas a
+		INNER JOIN treehousedb.turmas t ON t.id = a.id_turma
+		WHERE a.id = ?
+		  AND (
+			a.id_professor = ?
+			OR t.id_professor = ?
+		  )
+	`
+
+	var count uint64
+	if err := r.db.QueryRow(query, lessonID, teacherID, teacherID).Scan(&count); err != nil {
+		return false, err
+	}
+
+	return count > 0, nil
 }
 
 func (r LessonsRepository) UpdateStatus(lessonID uint64, statusID uint64) error {

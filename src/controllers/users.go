@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
 	"github.com/brunoob35/TreeHouse-API/src/responses"
+	"github.com/brunoob35/TreeHouse-API/src/security"
 	"github.com/gorilla/mux"
 )
 
@@ -203,4 +205,151 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func FetchCurrentUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repositories.NewUsersRepository(db)
+	user, err := repo.FetchByID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	user.Senha = ""
+	responses.JSON(w, http.StatusOK, user)
+}
+
+func UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	bodyRequest, err := io.ReadAll(r.Body)
+	if err != nil {
+		responses.Err(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	var user models.User
+	if err = json.Unmarshal(bodyRequest, &user); err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if err = user.Prepare("update"); err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repositories.NewUsersRepository(db)
+	currentUser, err := repo.FetchByID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	user.Ativo = currentUser.Ativo
+	user.IDEndereco = currentUser.IDEndereco
+
+	if err = repo.Update(userID, user); err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func UpdateCurrentUserPassword(w http.ResponseWriter, r *http.Request) {
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	bodyRequest, err := io.ReadAll(r.Body)
+	if err != nil {
+		responses.Err(w, http.StatusUnprocessableEntity, err)
+		return
+	}
+
+	var payload struct {
+		SenhaAtual string `json:"senha_atual"`
+		NovaSenha  string `json:"nova_senha"`
+	}
+
+	if err = json.Unmarshal(bodyRequest, &payload); err != nil {
+		responses.Err(w, http.StatusBadRequest, err)
+		return
+	}
+
+	if payload.SenhaAtual == "" {
+		responses.Err(w, http.StatusBadRequest, errors.New("a senha atual é obrigatória"))
+		return
+	}
+
+	if len(payload.NovaSenha) < 6 {
+		responses.Err(w, http.StatusBadRequest, errors.New("a nova senha deve ter pelo menos 6 caracteres"))
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repositories.NewUsersRepository(db)
+	currentUser, err := repo.FetchByID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if currentUser.Senha == "" {
+		responses.Err(w, http.StatusConflict, errors.New("o usuário ainda não definiu a senha inicial"))
+		return
+	}
+
+	if err = security.ValidatePassword(currentUser.Senha, payload.SenhaAtual); err != nil {
+		responses.Err(w, http.StatusUnauthorized, errors.New("senha atual inválida"))
+		return
+	}
+
+	passwordHash, err := security.Hash(payload.NovaSenha)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if err = repo.UpdatePassword(userID, string(passwordHash)); err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, map[string]string{
+		"message": "Senha atualizada com sucesso.",
+	})
 }

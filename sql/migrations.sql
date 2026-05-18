@@ -186,6 +186,7 @@ CREATE TABLE contratos_tipos (
 CREATE TABLE turmas (
                         id INT UNSIGNED NOT NULL AUTO_INCREMENT,
                         id_professor INT UNSIGNED NULL,
+                        id_endereco INT UNSIGNED NULL,
                         nome VARCHAR(100) NOT NULL,
                         descricao_recorrencia TEXT NULL,
                         recorrencia_json JSON NULL,
@@ -200,7 +201,13 @@ CREATE TABLE turmas (
                                 ON UPDATE CASCADE
                                 ON DELETE RESTRICT,
 
+                        CONSTRAINT fk_turmas_endereco
+                            FOREIGN KEY (id_endereco) REFERENCES enderecos (id)
+                                ON UPDATE CASCADE
+                                ON DELETE SET NULL,
+
                         INDEX idx_turmas_id_professor (id_professor),
+                        INDEX idx_turmas_id_endereco (id_endereco),
                         INDEX idx_turmas_nome (nome),
                         INDEX idx_turmas_deleted_at (deleted_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -1157,4 +1164,3 @@ SET @gestor_master_id = LAST_INSERT_ID();
 INSERT INTO usuarios_permissoes (id_usuario, id_permissao) VALUES
     (@gestor_master_id, 1),
     (@gestor_master_id, 4);
-

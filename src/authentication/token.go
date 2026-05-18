@@ -27,6 +27,12 @@ type CustomClaims struct {
 	jwt.RegisteredClaims
 }
 
+type FirstAccessClaims struct {
+	UserID  uint64 `json:"userId"`
+	Purpose string `json:"purpose"`
+	jwt.RegisteredClaims
+}
+
 // GenerateToken creates and signs a JWT token for the authenticated user.
 //
 // The generated token stores:
@@ -54,6 +60,23 @@ func GenerateToken(userID uint64, permissions uint64) (string, error) {
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 
+	return token.SignedString(config.SecretKey)
+}
+
+func GenerateFirstAccessToken(userID uint64) (string, error) {
+	now := time.Now()
+
+	claims := FirstAccessClaims{
+		UserID:  userID,
+		Purpose: "first_access",
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(now.Add(30 * time.Minute)),
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(config.SecretKey)
 }
 
@@ -159,6 +182,30 @@ func ExtractPermissions(r *http.Request) (uint64, error) {
 	}
 
 	return claims.Permissions, nil
+}
+
+func ExtractFirstAccessUserID(tokenString string) (uint64, error) {
+	claims := &FirstAccessClaims{}
+
+	token, err := jwt.ParseWithClaims(
+		tokenString,
+		claims,
+		retrieveAuthKey,
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}),
+	)
+	if err != nil {
+		return 0, err
+	}
+
+	if !token.Valid {
+		return 0, errors.New("invalid token")
+	}
+
+	if claims.Purpose != "first_access" {
+		return 0, errors.New("invalid token purpose")
+	}
+
+	return claims.UserID, nil
 }
 
 // extractToken extracts the JWT token from the Authorization header.

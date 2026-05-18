@@ -47,13 +47,29 @@ func CreateClass(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	class.ID = classID
+	fetchedClass, err := repository.FetchByID(classID)
+	if err != nil {
+		class.ID = classID
+		responses.JSON(w, http.StatusCreated, map[string]interface{}{
+			"id":                      class.ID,
+			"teacher_id":              class.TeacherID,
+			"name":                    class.Name,
+			"recurrence_desc":         class.RecurrenceDesc,
+			"recurrence_json":         class.RecurrenceJSON,
+			"endereco":                class.Endereco,
+			"generated_lessons_count": generatedLessonsCount,
+		})
+		return
+	}
+
 	responses.JSON(w, http.StatusCreated, map[string]interface{}{
-		"id":                    class.ID,
-		"teacher_id":            class.TeacherID,
-		"name":                  class.Name,
-		"recurrence_desc":       class.RecurrenceDesc,
-		"recurrence_json":       class.RecurrenceJSON,
+		"id":                      fetchedClass.ID,
+		"teacher_id":              fetchedClass.TeacherID,
+		"id_endereco":             fetchedClass.IDEndereco,
+		"name":                    fetchedClass.Name,
+		"recurrence_desc":         fetchedClass.RecurrenceDesc,
+		"recurrence_json":         fetchedClass.RecurrenceJSON,
+		"endereco":                fetchedClass.Endereco,
 		"generated_lessons_count": generatedLessonsCount,
 	})
 }
@@ -303,6 +319,7 @@ func CreatePrivateClassFromStudent(w http.ResponseWriter, r *http.Request) {
 		Name:           request.Name,
 		RecurrenceDesc: request.RecurrenceDesc,
 		RecurrenceJSON: request.RecurrenceJSON,
+		Endereco:       request.Endereco,
 	}
 	if strings.TrimSpace(class.Name) == "" {
 		class.Name = "Turma"
@@ -330,7 +347,7 @@ func CreatePrivateClassFromStudent(w http.ResponseWriter, r *http.Request) {
 	fetchedClass, err := repository.FetchByID(classID)
 	if err != nil {
 		responses.JSON(w, http.StatusCreated, map[string]interface{}{
-			"id": classID,
+			"id":                      classID,
 			"generated_lessons_count": generatedLessonsCount,
 		})
 		return
@@ -339,9 +356,11 @@ func CreatePrivateClassFromStudent(w http.ResponseWriter, r *http.Request) {
 	responses.JSON(w, http.StatusCreated, map[string]interface{}{
 		"id":                      fetchedClass.ID,
 		"teacher_id":              fetchedClass.TeacherID,
+		"id_endereco":             fetchedClass.IDEndereco,
 		"name":                    fetchedClass.Name,
 		"recurrence_desc":         fetchedClass.RecurrenceDesc,
 		"recurrence_json":         fetchedClass.RecurrenceJSON,
+		"endereco":                fetchedClass.Endereco,
 		"generated_lessons_count": generatedLessonsCount,
 	})
 }

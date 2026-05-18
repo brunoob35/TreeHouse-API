@@ -2,11 +2,13 @@ package controllers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
 	"time"
 
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
@@ -350,6 +352,38 @@ func UpdateLessonStatus(w http.ResponseWriter, r *http.Request) {
 	defer db.Close()
 
 	repository := repositories.NewLessonsRepository(db)
+
+	permissions, err := authentication.ExtractPermissions(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	if authentication.HasPermission(permissions, authentication.PermProfessor) {
+		userID, authErr := authentication.ExtractUserID(r)
+		if authErr != nil {
+			responses.Err(w, http.StatusUnauthorized, authErr)
+			return
+		}
+
+		allowedStatus := request.StatusID == 2 || request.StatusID == 5
+		if !allowedStatus {
+			responses.Err(w, http.StatusForbidden, errors.New("professor pode apenas marcar presença ou sinalizar reagendamento"))
+			return
+		}
+
+		belongsToTeacher, belongsErr := repository.BelongsToTeacher(lessonID, userID)
+		if belongsErr != nil {
+			responses.Err(w, http.StatusInternalServerError, belongsErr)
+			return
+		}
+
+		if !belongsToTeacher {
+			responses.Err(w, http.StatusForbidden, errors.New("aula não vinculada ao professor autenticado"))
+			return
+		}
+	}
+
 	if err = repository.UpdateStatus(lessonID, request.StatusID); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return

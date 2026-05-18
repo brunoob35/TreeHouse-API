@@ -10,17 +10,28 @@ import (
 // Each student may optionally have a book assigned and
 // a literacy level registered.
 type Student struct {
-	ID            uint64     `json:"id,omitempty"`
-	Nome          string     `json:"nome"`
-	Livro         string     `json:"livro,omitempty"`
-	Alfabetizacao string     `json:"alfabetizacao,omitempty"`
-	Nascimento    *time.Time `json:"nascimento,omitempty"`
-	Responsavel   string     `json:"responsavel,omitempty"`
-	ResponsavelTelefone string `json:"responsavel_telefone,omitempty"`
-	ClassesCount  uint64     `json:"classes_count,omitempty"`
-	Ativo         bool       `json:"ativo"`
-	CreatedAt     time.Time  `json:"created_at,omitempty"`
-	UpdatedAt     time.Time  `json:"updated_at,omitempty"`
+	ID                  uint64     `json:"id,omitempty"`
+	Nome                string     `json:"nome"`
+	Livro               string     `json:"livro,omitempty"`
+	Alfabetizacao       string     `json:"alfabetizacao,omitempty"`
+	Nascimento          *time.Time `json:"nascimento,omitempty"`
+	Responsavel         string     `json:"responsavel,omitempty"`
+	ResponsavelTelefone string     `json:"responsavel_telefone,omitempty"`
+	ClassesCount        uint64     `json:"classes_count,omitempty"`
+	Ativo               bool       `json:"ativo"`
+	CreatedAt           time.Time  `json:"created_at,omitempty"`
+	UpdatedAt           time.Time  `json:"updated_at,omitempty"`
+}
+
+type ProfessorStudentSummary struct {
+	ID                  uint64  `json:"id"`
+	Nome                string  `json:"nome"`
+	Ativo               bool    `json:"ativo"`
+	ClassID             uint64  `json:"class_id"`
+	ClassName           string  `json:"class_name"`
+	LessonsCompleted    uint64  `json:"lessons_completed"`
+	LessonsTotal        uint64  `json:"lessons_total"`
+	FrequencyPercentage float64 `json:"frequency_percentage"`
 }
 
 // Prepare formats and validates student data before persistence.

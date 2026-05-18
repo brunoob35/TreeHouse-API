@@ -2,6 +2,7 @@
 package controllers
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"io"
@@ -19,6 +20,34 @@ import (
 
 func CreateProfessor(w http.ResponseWriter, r *http.Request) {
 	createUserWithPermission(w, r, authentication.PermProfessor)
+}
+
+func FetchCurrentProfessor(w http.ResponseWriter, r *http.Request) {
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repositories.NewUsersRepository(db)
+	user, err := repo.FetchByID(userID)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			responses.Err(w, http.StatusNotFound, err)
+			return
+		}
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, user)
 }
 
 func FetchProfessors(w http.ResponseWriter, r *http.Request) {
@@ -129,4 +158,76 @@ func AssignProfessorToClass(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+func FetchCurrentProfessorClasses(w http.ResponseWriter, r *http.Request) {
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repositories.NewClassesRepository(db)
+	classes, err := repo.FetchAllActiveByTeacherID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, classes)
+}
+
+func FetchCurrentProfessorLessons(w http.ResponseWriter, r *http.Request) {
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repositories.NewLessonsRepository(db)
+	lessons, err := repo.FetchByTeacherID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, lessons)
+}
+
+func FetchCurrentProfessorStudents(w http.ResponseWriter, r *http.Request) {
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	db, err := persistency.Connect()
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+	defer db.Close()
+
+	repo := repositories.NewStudentsRepository(db)
+	students, err := repo.FetchByTeacherID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	responses.JSON(w, http.StatusOK, students)
 }

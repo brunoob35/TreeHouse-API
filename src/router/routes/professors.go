@@ -58,4 +58,40 @@ var professorsRoutes = []Routes{
 			authentication.PermGestaoMaster,
 		},
 	},
+	{
+		URI:      "/professor/me",
+		Method:   http.MethodGet,
+		Function: controllers.FetchCurrentProfessor,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermProfessor,
+		},
+	},
+	{
+		URI:      "/professor/classes",
+		Method:   http.MethodGet,
+		Function: controllers.FetchCurrentProfessorClasses,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermProfessor,
+		},
+	},
+	{
+		URI:      "/professor/lessons",
+		Method:   http.MethodGet,
+		Function: controllers.FetchCurrentProfessorLessons,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermProfessor,
+		},
+	},
+	{
+		URI:      "/professor/students",
+		Method:   http.MethodGet,
+		Function: controllers.FetchCurrentProfessorStudents,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermProfessor,
+		},
+	},
 }

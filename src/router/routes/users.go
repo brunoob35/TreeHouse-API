@@ -37,6 +37,39 @@ var userRoutes = []Routes{
 		},
 	},
 	{
+		URI:      "/users/me",
+		Method:   http.MethodGet,
+		Function: controllers.FetchCurrentUser,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+			authentication.PermProfessor,
+		},
+	},
+	{
+		URI:      "/users/me",
+		Method:   http.MethodPut,
+		Function: controllers.UpdateCurrentUser,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+			authentication.PermProfessor,
+		},
+	},
+	{
+		URI:      "/users/me/password",
+		Method:   http.MethodPatch,
+		Function: controllers.UpdateCurrentUserPassword,
+		Auth:     true,
+		Permissions: []authentication.Permission{
+			authentication.PermGestao,
+			authentication.PermGestaoMaster,
+			authentication.PermProfessor,
+		},
+	},
+	{
 		URI:      "/users/{userID}",
 		Method:   http.MethodGet,
 		Function: controllers.FetchUser,

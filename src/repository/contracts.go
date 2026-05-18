@@ -89,7 +89,9 @@ func (r *ContractsRepository) FetchTypes() ([]models.ContractType, error) {
 	return types, rows.Err()
 }
 
-func scanContract(scanner interface{ Scan(dest ...interface{}) error }, contract *models.Contract) error {
+func scanContract(scanner interface {
+	Scan(dest ...interface{}) error
+}, contract *models.Contract) error {
 	var classID sql.NullInt64
 	var representativeEmail sql.NullString
 	var representativeCPF sql.NullString
@@ -679,10 +681,11 @@ func (r *ContractsRepository) CreateClassFromContract(contractID uint64, class m
 	queryClass := `
 		INSERT INTO treehousedb.turmas (
 			id_professor,
+			id_endereco,
 			nome,
 			descricao_recorrencia,
 			recorrencia_json
-		) VALUES (?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?)
 	`
 
 	var teacherID interface{}
@@ -692,9 +695,48 @@ func (r *ContractsRepository) CreateClassFromContract(contractID uint64, class m
 		teacherID = nil
 	}
 
+	var addressID interface{}
+	if class.Endereco != nil {
+		addressQuery := `
+			INSERT INTO treehousedb.enderecos (
+				cep,
+				rua,
+				numero,
+				bairro,
+				cidade,
+				estado,
+				pais,
+				complemento
+			) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+		`
+
+		addressResult, addressErr := tx.Exec(
+			addressQuery,
+			nullIfEmpty(class.Endereco.CEP),
+			class.Endereco.Rua,
+			class.Endereco.Numero,
+			class.Endereco.Bairro,
+			class.Endereco.Cidade,
+			class.Endereco.Estado,
+			class.Endereco.Pais,
+			nullIfEmpty(class.Endereco.Complemento),
+		)
+		if addressErr != nil {
+			return 0, 0, addressErr
+		}
+
+		lastAddressID, addressErr := addressResult.LastInsertId()
+		if addressErr != nil {
+			return 0, 0, addressErr
+		}
+
+		addressID = lastAddressID
+	}
+
 	result, err := tx.Exec(
 		queryClass,
 		teacherID,
+		addressID,
 		class.Name,
 		nullIfEmpty(class.RecurrenceDesc),
 		nullIfEmpty(class.RecurrenceJSON),

@@ -16,9 +16,66 @@ type UsersRepository struct {
 	db *sql.DB
 }
 
+type userRowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
 // NewUsersRepository creates a new repository instance for users.
 func NewUsersRepository(db *sql.DB) *UsersRepository {
 	return &UsersRepository{db: db}
+}
+
+func nullableUserString(value string) interface{} {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil
+	}
+	return trimmed
+}
+
+func scanUser(scanner userRowScanner) (models.User, error) {
+	var user models.User
+	var password sql.NullString
+	var cpf sql.NullString
+	var rg sql.NullString
+	var phone sql.NullString
+	var birth sql.NullTime
+
+	err := scanner.Scan(
+		&user.ID,
+		&user.IDEndereco,
+		&password,
+		&user.Nome,
+		&user.Email,
+		&cpf,
+		&rg,
+		&phone,
+		&user.Ativo,
+		&birth,
+		&user.CreatedAt,
+		&user.UpdatedAt,
+	)
+	if err != nil {
+		return models.User{}, err
+	}
+
+	if password.Valid {
+		user.Senha = password.String
+	}
+	if cpf.Valid {
+		user.CPF = cpf.String
+	}
+	if rg.Valid {
+		user.RG = rg.String
+	}
+	if phone.Valid {
+		user.Telefone = phone.String
+	}
+	if birth.Valid {
+		user.Nascimento = &birth.Time
+	}
+
+	return user, nil
 }
 
 // FetchByID searches for a user by its ID.
@@ -44,23 +101,7 @@ func (r *UsersRepository) FetchByID(id uint64) (models.User, error) {
 		WHERE id = ?
 	`
 
-	var user models.User
-
-	err := r.db.QueryRow(query, id).Scan(
-		&user.ID,
-		&user.IDEndereco,
-		&user.Senha,
-		&user.Nome,
-		&user.Email,
-		&user.CPF,
-		&user.RG,
-		&user.Telefone,
-		&user.Ativo,
-		&user.Nascimento,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
+	user, err := scanUser(r.db.QueryRow(query, id))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, sql.ErrNoRows
@@ -93,23 +134,7 @@ func (r *UsersRepository) FetchByEmail(email string) (models.User, error) {
 		WHERE email = ?
 	`
 
-	var user models.User
-
-	err := r.db.QueryRow(query, email).Scan(
-		&user.ID,
-		&user.IDEndereco,
-		&user.Senha,
-		&user.Nome,
-		&user.Email,
-		&user.CPF,
-		&user.RG,
-		&user.Telefone,
-		&user.Ativo,
-		&user.Nascimento,
-		&user.CreatedAt,
-		&user.UpdatedAt,
-	)
-
+	user, err := scanUser(r.db.QueryRow(query, email))
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return models.User{}, sql.ErrNoRows
@@ -193,12 +218,12 @@ func (r *UsersRepository) Insert(user models.User) (uint64, error) {
 
 	result, err := r.db.Exec(
 		query,
-		user.Senha,
+		nullableUserString(user.Senha),
 		user.Nome,
 		user.Email,
-		user.CPF,
-		user.RG,
-		user.Telefone,
+		nullableUserString(user.CPF),
+		nullableUserString(user.RG),
+		nullableUserString(user.Telefone),
 		user.Ativo,
 		user.Nascimento,
 	)
@@ -244,12 +269,12 @@ func (r *UsersRepository) InsertWithPermission(user models.User, permissionID ui
 
 	result, err := tx.Exec(
 		insertUserQuery,
-		user.Senha,
+		nullableUserString(user.Senha),
 		user.Nome,
 		user.Email,
-		user.CPF,
-		user.RG,
-		user.Telefone,
+		nullableUserString(user.CPF),
+		nullableUserString(user.RG),
+		nullableUserString(user.Telefone),
 		user.Ativo,
 		user.Nascimento,
 	)
@@ -308,9 +333,9 @@ func (r *UsersRepository) Update(id uint64, user models.User) error {
 		user.IDEndereco,
 		user.Nome,
 		user.Email,
-		user.CPF,
-		user.RG,
-		user.Telefone,
+		nullableUserString(user.CPF),
+		nullableUserString(user.RG),
+		nullableUserString(user.Telefone),
 		user.Ativo,
 		user.Nascimento,
 		id,
@@ -415,23 +440,8 @@ func (r *UsersRepository) FetchAllUsers(nome string) ([]models.User, error) {
 	var users []models.User
 
 	for rows.Next() {
-		var user models.User
-
-		err = rows.Scan(
-			&user.ID,
-			&user.IDEndereco,
-			&user.Senha,
-			&user.Nome,
-			&user.Email,
-			&user.CPF,
-			&user.RG,
-			&user.Telefone,
-			&user.Ativo,
-			&user.Nascimento,
-			&user.CreatedAt,
-			&user.UpdatedAt,
-		)
-
+		user, scanErr := scanUser(rows)
+		err = scanErr
 		if err != nil {
 			return nil, err
 		}
@@ -487,22 +497,8 @@ func (r *UsersRepository) FetchAllActiveUsers(nome string) ([]models.User, error
 	var users []models.User
 
 	for rows.Next() {
-		var user models.User
-
-		err = rows.Scan(
-			&user.ID,
-			&user.IDEndereco,
-			&user.Senha,
-			&user.Nome,
-			&user.Email,
-			&user.CPF,
-			&user.RG,
-			&user.Telefone,
-			&user.Ativo,
-			&user.Nascimento,
-			&user.CreatedAt,
-			&user.UpdatedAt,
-		)
+		user, scanErr := scanUser(rows)
+		err = scanErr
 		if err != nil {
 			return nil, err
 		}
@@ -560,22 +556,8 @@ func (r *UsersRepository) FetchProfessors(nome string) ([]models.User, error) {
 	var users []models.User
 
 	for rows.Next() {
-		var user models.User
-
-		err = rows.Scan(
-			&user.ID,
-			&user.IDEndereco,
-			&user.Senha,
-			&user.Nome,
-			&user.Email,
-			&user.CPF,
-			&user.RG,
-			&user.Telefone,
-			&user.Ativo,
-			&user.Nascimento,
-			&user.CreatedAt,
-			&user.UpdatedAt,
-		)
+		user, scanErr := scanUser(rows)
+		err = scanErr
 		if err != nil {
 			return nil, err
 		}
@@ -631,22 +613,8 @@ func (r *UsersRepository) ReturnAllProfessors(nome string) ([]models.User, error
 	var users []models.User
 
 	for rows.Next() {
-		var user models.User
-
-		err = rows.Scan(
-			&user.ID,
-			&user.IDEndereco,
-			&user.Senha,
-			&user.Nome,
-			&user.Email,
-			&user.CPF,
-			&user.RG,
-			&user.Telefone,
-			&user.Ativo,
-			&user.Nascimento,
-			&user.CreatedAt,
-			&user.UpdatedAt,
-		)
+		user, scanErr := scanUser(rows)
+		err = scanErr
 		if err != nil {
 			return nil, err
 		}

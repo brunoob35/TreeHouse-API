@@ -1,8 +1,8 @@
 package repositories
 
 import (
-	"encoding/json"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -29,6 +29,31 @@ type classRecurrencePayload struct {
 	StartTime   string   `json:"start_time"`
 }
 
+const classSelectFields = `
+		t.id,
+		t.id_professor,
+		t.id_endereco,
+		t.nome,
+		t.descricao_recorrencia,
+		t.recorrencia_json,
+		e.id,
+		e.cep,
+		e.rua,
+		e.numero,
+		e.bairro,
+		e.cidade,
+		e.estado,
+		e.pais,
+		e.complemento,
+		t.created_at,
+		t.updated_at,
+		t.deleted_at
+`
+
+const classAddressJoin = `
+		LEFT JOIN treehousedb.enderecos e ON e.id = t.id_endereco
+`
+
 func (r ClassesRepository) Create(class models.Class) (uint64, int, error) {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -41,13 +66,19 @@ func (r ClassesRepository) Create(class models.Class) (uint64, int, error) {
 		}
 	}()
 
+	addressID, err := upsertClassAddressTx(tx, nil, class.Endereco)
+	if err != nil {
+		return 0, 0, err
+	}
+
 	query := `
 		INSERT INTO treehousedb.turmas (
 			id_professor,
+			id_endereco,
 			nome,
 			descricao_recorrencia,
 			recorrencia_json
-		) VALUES (?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?)
 	`
 
 	var teacherID interface{}
@@ -60,6 +91,7 @@ func (r ClassesRepository) Create(class models.Class) (uint64, int, error) {
 	result, err := tx.Exec(
 		query,
 		teacherID,
+		nullableUint64(addressID),
 		class.Name,
 		nullIfEmpty(class.RecurrenceDesc),
 		nullIfEmpty(class.RecurrenceJSON),
@@ -219,77 +251,27 @@ func parseWeekday(value string) (time.Weekday, error) {
 
 func (r ClassesRepository) FetchByID(classID uint64) (models.Class, error) {
 	query := `
-		SELECT
-			id,
-			id_professor,
-			nome,
-			descricao_recorrencia,
-			recorrencia_json,
-			created_at,
-			updated_at,
-			deleted_at
-		FROM treehousedb.turmas
-		WHERE id = ?
+		SELECT ` + classSelectFields + `
+		FROM treehousedb.turmas t
+		` + classAddressJoin + `
+		WHERE t.id = ?
 		LIMIT 1
 	`
 
-	var class models.Class
-	var teacherID sql.NullInt64
-	var recurrenceDesc sql.NullString
-	var recurrenceJSON sql.NullString
-	var deletedAt sql.NullTime
-
-	err := r.db.QueryRow(query, classID).Scan(
-		&class.ID,
-		&teacherID,
-		&class.Name,
-		&recurrenceDesc,
-		&recurrenceJSON,
-		&class.CreatedAt,
-		&class.UpdatedAt,
-		&deletedAt,
-	)
-	if err != nil {
-		return models.Class{}, err
-	}
-
-	if teacherID.Valid {
-		tid := uint64(teacherID.Int64)
-		class.TeacherID = &tid
-	}
-
-	if recurrenceDesc.Valid {
-		class.RecurrenceDesc = recurrenceDesc.String
-	}
-
-	if recurrenceJSON.Valid {
-		class.RecurrenceJSON = recurrenceJSON.String
-	}
-
-	if deletedAt.Valid {
-		class.DeletedAt = &deletedAt.Time
-	}
-
-	return class, nil
+	return scanClassRow(r.db.QueryRow(query, classID))
 }
 
 func (r ClassesRepository) FetchAllActive() ([]models.Class, error) {
 	query := `
 	SELECT
-			id,
-			id_professor,
-			nome,
-			descricao_recorrencia,
-			recorrencia_json,
-			(SELECT COUNT(*) FROM treehousedb.alunos_turmas at WHERE at.id_turma = turmas.id) AS student_count,
-			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = turmas.id) AS lessons_total,
-			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = turmas.id AND a.id_status = 2) AS lessons_completed,
-			created_at,
-			updated_at,
-			deleted_at
-		FROM treehousedb.turmas turmas
-		WHERE deleted_at IS NULL
-		ORDER BY nome ASC
+			` + classSelectFields + `,
+			(SELECT COUNT(*) FROM treehousedb.alunos_turmas at WHERE at.id_turma = t.id) AS student_count,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = t.id) AS lessons_total,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = t.id AND a.id_status = 2) AS lessons_completed
+		FROM treehousedb.turmas t
+		LEFT JOIN treehousedb.enderecos e ON e.id = t.id_endereco
+		WHERE t.deleted_at IS NULL
+		ORDER BY t.nome ASC
 	`
 
 	rows, err := r.db.Query(query)
@@ -301,43 +283,43 @@ func (r ClassesRepository) FetchAllActive() ([]models.Class, error) {
 	var classes []models.Class
 
 	for rows.Next() {
-		var class models.Class
-		var teacherID sql.NullInt64
-		var recurrenceDesc sql.NullString
-		var recurrenceJSON sql.NullString
-		var deletedAt sql.NullTime
-
-		if err = rows.Scan(
-			&class.ID,
-			&teacherID,
-			&class.Name,
-			&recurrenceDesc,
-			&recurrenceJSON,
-			&class.StudentCount,
-			&class.LessonsTotal,
-			&class.LessonsCompleted,
-			&class.CreatedAt,
-			&class.UpdatedAt,
-			&deletedAt,
-		); err != nil {
-			return nil, err
+		class, scanErr := scanClassRowWithStats(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
 
-		if teacherID.Valid {
-			tid := uint64(teacherID.Int64)
-			class.TeacherID = &tid
-		}
+		classes = append(classes, class)
+	}
 
-		if recurrenceDesc.Valid {
-			class.RecurrenceDesc = recurrenceDesc.String
-		}
+	return classes, nil
+}
 
-		if recurrenceJSON.Valid {
-			class.RecurrenceJSON = recurrenceJSON.String
-		}
+func (r ClassesRepository) FetchAllActiveByTeacherID(teacherID uint64) ([]models.Class, error) {
+	query := `
+	SELECT
+			` + classSelectFields + `,
+			(SELECT COUNT(*) FROM treehousedb.alunos_turmas at WHERE at.id_turma = t.id) AS student_count,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = t.id) AS lessons_total,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = t.id AND a.id_status = 2) AS lessons_completed
+		FROM treehousedb.turmas t
+		LEFT JOIN treehousedb.enderecos e ON e.id = t.id_endereco
+		WHERE t.deleted_at IS NULL
+		  AND t.id_professor = ?
+		ORDER BY t.nome ASC
+	`
 
-		if deletedAt.Valid {
-			class.DeletedAt = &deletedAt.Time
+	rows, err := r.db.Query(query, teacherID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var classes []models.Class
+
+	for rows.Next() {
+		class, scanErr := scanClassRowWithStats(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
 
 		classes = append(classes, class)
@@ -349,19 +331,13 @@ func (r ClassesRepository) FetchAllActive() ([]models.Class, error) {
 func (r ClassesRepository) FetchAll() ([]models.Class, error) {
 	query := `
 	SELECT
-			id,
-			id_professor,
-			nome,
-			descricao_recorrencia,
-			recorrencia_json,
-			(SELECT COUNT(*) FROM treehousedb.alunos_turmas at WHERE at.id_turma = turmas.id) AS student_count,
-			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = turmas.id) AS lessons_total,
-			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = turmas.id AND a.id_status = 2) AS lessons_completed,
-			created_at,
-			updated_at,
-			deleted_at
-		FROM treehousedb.turmas turmas
-		ORDER BY nome ASC
+			` + classSelectFields + `,
+			(SELECT COUNT(*) FROM treehousedb.alunos_turmas at WHERE at.id_turma = t.id) AS student_count,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = t.id) AS lessons_total,
+			(SELECT COUNT(*) FROM treehousedb.aulas a WHERE a.id_turma = t.id AND a.id_status = 2) AS lessons_completed
+		FROM treehousedb.turmas t
+		LEFT JOIN treehousedb.enderecos e ON e.id = t.id_endereco
+		ORDER BY t.nome ASC
 	`
 
 	rows, err := r.db.Query(query)
@@ -373,43 +349,9 @@ func (r ClassesRepository) FetchAll() ([]models.Class, error) {
 	var classes []models.Class
 
 	for rows.Next() {
-		var class models.Class
-		var teacherID sql.NullInt64
-		var recurrenceDesc sql.NullString
-		var recurrenceJSON sql.NullString
-		var deletedAt sql.NullTime
-
-		if err = rows.Scan(
-			&class.ID,
-			&teacherID,
-			&class.Name,
-			&recurrenceDesc,
-			&recurrenceJSON,
-			&class.StudentCount,
-			&class.LessonsTotal,
-			&class.LessonsCompleted,
-			&class.CreatedAt,
-			&class.UpdatedAt,
-			&deletedAt,
-		); err != nil {
-			return nil, err
-		}
-
-		if teacherID.Valid {
-			tid := uint64(teacherID.Int64)
-			class.TeacherID = &tid
-		}
-
-		if recurrenceDesc.Valid {
-			class.RecurrenceDesc = recurrenceDesc.String
-		}
-
-		if recurrenceJSON.Valid {
-			class.RecurrenceJSON = recurrenceJSON.String
-		}
-
-		if deletedAt.Valid {
-			class.DeletedAt = &deletedAt.Time
+		class, scanErr := scanClassRowWithStats(rows)
+		if scanErr != nil {
+			return nil, scanErr
 		}
 
 		classes = append(classes, class)
@@ -435,10 +377,16 @@ func (r ClassesRepository) Update(classID uint64, class models.Class) error {
 		return err
 	}
 
+	addressID, err := upsertClassAddressTx(tx, currentClass.IDEndereco, class.Endereco)
+	if err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.turmas
 		SET
 			id_professor = ?,
+			id_endereco = ?,
 			nome = ?,
 			descricao_recorrencia = ?,
 			recorrencia_json = ?
@@ -456,6 +404,7 @@ func (r ClassesRepository) Update(classID uint64, class models.Class) error {
 	_, err = tx.Exec(
 		query,
 		teacherID,
+		nullableUint64(addressID),
 		class.Name,
 		nullIfEmpty(class.RecurrenceDesc),
 		nullIfEmpty(class.RecurrenceJSON),
@@ -628,10 +577,11 @@ func (r ClassesRepository) CreatePrivateClassFromStudent(studentID uint64, class
 	queryClass := `
 		INSERT INTO treehousedb.turmas (
 			id_professor,
+			id_endereco,
 			nome,
 			descricao_recorrencia,
 			recorrencia_json
-		) VALUES (?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?)
 	`
 
 	var teacher interface{}
@@ -641,9 +591,15 @@ func (r ClassesRepository) CreatePrivateClassFromStudent(studentID uint64, class
 		teacher = nil
 	}
 
+	addressID, err := upsertClassAddressTx(tx, nil, class.Endereco)
+	if err != nil {
+		return 0, 0, err
+	}
+
 	result, err := tx.Exec(
 		queryClass,
 		teacher,
+		nullableUint64(addressID),
 		className,
 		nullIfEmpty(class.RecurrenceDesc),
 		nullIfEmpty(class.RecurrenceJSON),
@@ -761,55 +717,14 @@ func (r *ClassesRepository) AssignProfessorToClass(classID, professorID uint64) 
 
 func (r ClassesRepository) fetchByIDTx(tx *sql.Tx, classID uint64) (models.Class, error) {
 	query := `
-		SELECT
-			id,
-			id_professor,
-			nome,
-			descricao_recorrencia,
-			recorrencia_json,
-			created_at,
-			updated_at,
-			deleted_at
-		FROM treehousedb.turmas
-		WHERE id = ?
+		SELECT ` + classSelectFields + `
+		FROM treehousedb.turmas t
+		` + classAddressJoin + `
+		WHERE t.id = ?
 		LIMIT 1
 	`
 
-	var class models.Class
-	var teacherID sql.NullInt64
-	var recurrenceDesc sql.NullString
-	var recurrenceJSON sql.NullString
-	var deletedAt sql.NullTime
-
-	err := tx.QueryRow(query, classID).Scan(
-		&class.ID,
-		&teacherID,
-		&class.Name,
-		&recurrenceDesc,
-		&recurrenceJSON,
-		&class.CreatedAt,
-		&class.UpdatedAt,
-		&deletedAt,
-	)
-	if err != nil {
-		return models.Class{}, err
-	}
-
-	if teacherID.Valid {
-		tid := uint64(teacherID.Int64)
-		class.TeacherID = &tid
-	}
-	if recurrenceDesc.Valid {
-		class.RecurrenceDesc = recurrenceDesc.String
-	}
-	if recurrenceJSON.Valid {
-		class.RecurrenceJSON = recurrenceJSON.String
-	}
-	if deletedAt.Valid {
-		class.DeletedAt = &deletedAt.Time
-	}
-
-	return class, nil
+	return scanClassRow(tx.QueryRow(query, classID))
 }
 
 func deleteOpenLessonsByClassTx(tx *sql.Tx, classID uint64) error {
@@ -880,4 +795,256 @@ func equalTeacherID(left *uint64, right *uint64) bool {
 
 func normalizedNullableString(value string) string {
 	return strings.TrimSpace(value)
+}
+
+type classRowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanClassRow(scanner classRowScanner) (models.Class, error) {
+	var class models.Class
+	var teacherID sql.NullInt64
+	var addressID sql.NullInt64
+	var recurrenceDesc sql.NullString
+	var recurrenceJSON sql.NullString
+	var deletedAt sql.NullTime
+	var address models.Address
+	var scannedAddressID sql.NullInt64
+	var cep sql.NullString
+	var rua sql.NullString
+	var numero sql.NullString
+	var bairro sql.NullString
+	var cidade sql.NullString
+	var estado sql.NullString
+	var pais sql.NullString
+	var complemento sql.NullString
+
+	err := scanner.Scan(
+		&class.ID,
+		&teacherID,
+		&addressID,
+		&class.Name,
+		&recurrenceDesc,
+		&recurrenceJSON,
+		&scannedAddressID,
+		&cep,
+		&rua,
+		&numero,
+		&bairro,
+		&cidade,
+		&estado,
+		&pais,
+		&complemento,
+		&class.CreatedAt,
+		&class.UpdatedAt,
+		&deletedAt,
+	)
+	if err != nil {
+		return models.Class{}, err
+	}
+
+	if teacherID.Valid {
+		tid := uint64(teacherID.Int64)
+		class.TeacherID = &tid
+	}
+
+	if addressID.Valid {
+		aid := uint64(addressID.Int64)
+		class.IDEndereco = &aid
+	}
+
+	if recurrenceDesc.Valid {
+		class.RecurrenceDesc = recurrenceDesc.String
+	}
+
+	if recurrenceJSON.Valid {
+		class.RecurrenceJSON = recurrenceJSON.String
+	}
+
+	if deletedAt.Valid {
+		class.DeletedAt = &deletedAt.Time
+	}
+
+	if scannedAddressID.Valid {
+		address.ID = uint64(scannedAddressID.Int64)
+		address.CEP = cep.String
+		address.Rua = rua.String
+		address.Numero = numero.String
+		address.Bairro = bairro.String
+		address.Cidade = cidade.String
+		address.Estado = estado.String
+		address.Pais = pais.String
+		address.Complemento = complemento.String
+		class.Endereco = &address
+	}
+
+	return class, nil
+}
+
+func scanClassRowWithStats(scanner classRowScanner) (models.Class, error) {
+	var class models.Class
+	var teacherID sql.NullInt64
+	var addressID sql.NullInt64
+	var recurrenceDesc sql.NullString
+	var recurrenceJSON sql.NullString
+	var deletedAt sql.NullTime
+	var address models.Address
+	var scannedAddressID sql.NullInt64
+	var cep sql.NullString
+	var rua sql.NullString
+	var numero sql.NullString
+	var bairro sql.NullString
+	var cidade sql.NullString
+	var estado sql.NullString
+	var pais sql.NullString
+	var complemento sql.NullString
+
+	err := scanner.Scan(
+		&class.ID,
+		&teacherID,
+		&addressID,
+		&class.Name,
+		&recurrenceDesc,
+		&recurrenceJSON,
+		&scannedAddressID,
+		&cep,
+		&rua,
+		&numero,
+		&bairro,
+		&cidade,
+		&estado,
+		&pais,
+		&complemento,
+		&class.CreatedAt,
+		&class.UpdatedAt,
+		&deletedAt,
+		&class.StudentCount,
+		&class.LessonsTotal,
+		&class.LessonsCompleted,
+	)
+	if err != nil {
+		return models.Class{}, err
+	}
+
+	if teacherID.Valid {
+		tid := uint64(teacherID.Int64)
+		class.TeacherID = &tid
+	}
+
+	if addressID.Valid {
+		aid := uint64(addressID.Int64)
+		class.IDEndereco = &aid
+	}
+
+	if recurrenceDesc.Valid {
+		class.RecurrenceDesc = recurrenceDesc.String
+	}
+
+	if recurrenceJSON.Valid {
+		class.RecurrenceJSON = recurrenceJSON.String
+	}
+
+	if deletedAt.Valid {
+		class.DeletedAt = &deletedAt.Time
+	}
+
+	if scannedAddressID.Valid {
+		address.ID = uint64(scannedAddressID.Int64)
+		address.CEP = cep.String
+		address.Rua = rua.String
+		address.Numero = numero.String
+		address.Bairro = bairro.String
+		address.Cidade = cidade.String
+		address.Estado = estado.String
+		address.Pais = pais.String
+		address.Complemento = complemento.String
+		class.Endereco = &address
+	}
+
+	return class, nil
+}
+
+func upsertClassAddressTx(tx *sql.Tx, currentAddressID *uint64, address *models.Address) (*uint64, error) {
+	if address == nil {
+		return nil, nil
+	}
+
+	if currentAddressID != nil {
+		query := `
+			UPDATE treehousedb.enderecos
+			SET
+				cep = ?,
+				rua = ?,
+				numero = ?,
+				bairro = ?,
+				cidade = ?,
+				estado = ?,
+				pais = ?,
+				complemento = ?,
+				updated_at = CURRENT_TIMESTAMP
+			WHERE id = ?
+		`
+
+		_, err := tx.Exec(
+			query,
+			nullIfEmpty(address.CEP),
+			address.Rua,
+			address.Numero,
+			address.Bairro,
+			address.Cidade,
+			address.Estado,
+			address.Pais,
+			nullIfEmpty(address.Complemento),
+			*currentAddressID,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		return currentAddressID, nil
+	}
+
+	query := `
+		INSERT INTO treehousedb.enderecos (
+			cep,
+			rua,
+			numero,
+			bairro,
+			cidade,
+			estado,
+			pais,
+			complemento
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+	`
+
+	result, err := tx.Exec(
+		query,
+		nullIfEmpty(address.CEP),
+		address.Rua,
+		address.Numero,
+		address.Bairro,
+		address.Cidade,
+		address.Estado,
+		address.Pais,
+		nullIfEmpty(address.Complemento),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	lastInsertedID, err := result.LastInsertId()
+	if err != nil {
+		return nil, err
+	}
+
+	addressID := uint64(lastInsertedID)
+	return &addressID, nil
+}
+
+func nullableUint64(value *uint64) interface{} {
+	if value == nil {
+		return nil
+	}
+
+	return *value
 }
