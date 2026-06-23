@@ -11,11 +11,17 @@ import (
 )
 
 type ContractsRepository struct {
-	db *sql.DB
+	db          *sql.DB
+	auditUserID *uint64
 }
 
 func NewContractsRepository(db *sql.DB) *ContractsRepository {
 	return &ContractsRepository{db: db}
+}
+
+func (r *ContractsRepository) WithAuditUser(userID uint64) *ContractsRepository {
+	r.auditUserID = &userID
+	return r
 }
 
 func nullableStringValue(value string) interface{} {
@@ -478,6 +484,10 @@ func (r *ContractsRepository) Insert(contract models.Contract) (uint64, error) {
 		return 0, err
 	}
 
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return 0, err
+	}
+
 	query := `
 		INSERT INTO treehousedb.contratos (
 			id_cliente_representante,
@@ -561,6 +571,10 @@ func (r *ContractsRepository) Update(contractID uint64, contract models.Contract
 	}()
 
 	if err = r.resolveContractPartiesTx(tx, &contract); err != nil {
+		return err
+	}
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
 		return err
 	}
 
@@ -671,6 +685,10 @@ func (r *ContractsRepository) CreateClassFromContract(contractID uint64, class m
 
 	if existingClassID.Valid {
 		return 0, 0, errors.New("o contrato já possui uma turma vinculada")
+	}
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return 0, 0, err
 	}
 
 	class.Name = strings.TrimSpace(class.Name)

@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
@@ -48,7 +49,13 @@ func CreateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewStudentsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewStudentsRepository(db).WithAuditUser(userID)
 
 	newStudent.ID, err = repo.Insert(newStudent)
 	if err != nil {
@@ -72,7 +79,13 @@ func FetchStudents(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewStudentsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewStudentsRepository(db).WithAuditUser(userID)
 
 	students, err := repo.FetchAll(nome)
 	if err != nil {
@@ -102,7 +115,13 @@ func FetchStudent(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewStudentsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewStudentsRepository(db).WithAuditUser(userID)
 
 	student, err := repo.FetchByID(studentID)
 	if err != nil {
@@ -178,7 +197,23 @@ func UpdateStudent(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewStudentsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewStudentsRepository(db).WithAuditUser(userID)
+
+	currentStudent, err := repo.FetchByID(studentID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if !strings.Contains(string(bodyRequest), "\"ativo\"") {
+		student.Ativo = currentStudent.Ativo
+	}
 
 	if err = repo.Update(studentID, student); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)

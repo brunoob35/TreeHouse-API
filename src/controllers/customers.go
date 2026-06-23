@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
@@ -40,7 +41,13 @@ func CreateCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewCustomersRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewCustomersRepository(db).WithAuditUser(userID)
 	customerID, err := repo.Insert(customer)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -76,7 +83,13 @@ func FetchCustomers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewCustomersRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewCustomersRepository(db).WithAuditUser(userID)
 	customers, err := repo.FetchAll(search)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -101,7 +114,13 @@ func FetchCustomer(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewCustomersRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewCustomersRepository(db).WithAuditUser(userID)
 	customer, err := repo.FetchByID(customerID)
 	if err != nil {
 		responses.Err(w, http.StatusNotFound, err)

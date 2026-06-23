@@ -11,7 +11,8 @@ import (
 // StudentsRepository is responsible for all database operations
 // related to student records.
 type StudentsRepository struct {
-	db *sql.DB
+	db          *sql.DB
+	auditUserID *uint64
 }
 
 // NewStudentsRepository creates a new repository instance
@@ -20,10 +21,30 @@ func NewStudentsRepository(db *sql.DB) *StudentsRepository {
 	return &StudentsRepository{db: db}
 }
 
+func (r *StudentsRepository) WithAuditUser(userID uint64) *StudentsRepository {
+	r.auditUserID = &userID
+	return r
+}
+
 // Insert creates a new student record in the database.
 // Only base student data is inserted. The "ativo" field must
 // already be defined by the caller (usually true on creation).
 func (r *StudentsRepository) Insert(student models.Student) (uint64, error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return 0, err
+	}
+
 	query := `
 		INSERT INTO treehousedb.alunos (
 			nome,
@@ -34,7 +55,7 @@ func (r *StudentsRepository) Insert(student models.Student) (uint64, error) {
 		) VALUES (?, ?, ?, ?, ?)
 	`
 
-	result, err := r.db.Exec(
+	result, err := tx.Exec(
 		query,
 		student.Nome,
 		student.Livro,
@@ -48,6 +69,10 @@ func (r *StudentsRepository) Insert(student models.Student) (uint64, error) {
 
 	insertedID, err := result.LastInsertId()
 	if err != nil {
+		return 0, err
+	}
+
+	if err = tx.Commit(); err != nil {
 		return 0, err
 	}
 
@@ -210,6 +235,21 @@ func (r *StudentsRepository) FetchByID(id uint64) (models.Student, error) {
 // All editable fields can be updated including the
 // active status.
 func (r *StudentsRepository) Update(id uint64, student models.Student) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.alunos
 		SET
@@ -222,7 +262,7 @@ func (r *StudentsRepository) Update(id uint64, student models.Student) error {
 		WHERE id = ?
 	`
 
-	result, err := r.db.Exec(
+	result, err := tx.Exec(
 		query,
 		student.Nome,
 		student.Livro,
@@ -244,6 +284,10 @@ func (r *StudentsRepository) Update(id uint64, student models.Student) error {
 		return fmt.Errorf("nenhum aluno encontrado com id %d", id)
 	}
 
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -252,6 +296,21 @@ func (r *StudentsRepository) Update(id uint64, student models.Student) error {
 // Instead of removing the row from the database,
 // the function sets the "ativo" field to false.
 func (r *StudentsRepository) SoftDelete(id uint64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.alunos
 		SET
@@ -260,7 +319,7 @@ func (r *StudentsRepository) SoftDelete(id uint64) error {
 		WHERE id = ?
 	`
 
-	result, err := r.db.Exec(query, id)
+	result, err := tx.Exec(query, id)
 	if err != nil {
 		return err
 	}
@@ -272,6 +331,10 @@ func (r *StudentsRepository) SoftDelete(id uint64) error {
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("nenhum aluno encontrado com id %d", id)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
 	}
 
 	return nil

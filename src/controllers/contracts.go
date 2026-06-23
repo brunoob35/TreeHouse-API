@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
@@ -22,7 +23,13 @@ func FetchContractTypes(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewContractsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewContractsRepository(db).WithAuditUser(userID)
 	types, err := repo.FetchTypes()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -40,7 +47,13 @@ func FetchContractStatuses(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewContractsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewContractsRepository(db).WithAuditUser(userID)
 	statuses, err := repo.FetchStatuses()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -53,6 +66,7 @@ func FetchContractStatuses(w http.ResponseWriter, r *http.Request) {
 func FetchContracts(w http.ResponseWriter, r *http.Request) {
 	search := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
 	statusFilter := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("status")))
+	groupFilter := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("group")))
 
 	db, err := persistency.Connect()
 	if err != nil {
@@ -73,6 +87,27 @@ func FetchContracts(w http.ResponseWriter, r *http.Request) {
 		for _, contract := range contracts {
 			effectiveStatus := strings.ToLower(strings.TrimSpace(contract.EffectiveStatusName))
 			if effectiveStatus == strings.ToLower(statusFilter) {
+				filtered = append(filtered, contract)
+			}
+		}
+		contracts = filtered
+	}
+
+	if groupFilter != "" {
+		filtered := make([]models.Contract, 0, len(contracts))
+		for _, contract := range contracts {
+			isInactive := contract.StatusID == models.ContractStatusInactive
+
+			switch groupFilter {
+			case "main":
+				if !isInactive {
+					filtered = append(filtered, contract)
+				}
+			case "inactive":
+				if isInactive {
+					filtered = append(filtered, contract)
+				}
+			default:
 				filtered = append(filtered, contract)
 			}
 		}
@@ -132,7 +167,13 @@ func CreateContract(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewContractsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewContractsRepository(db).WithAuditUser(userID)
 	contractID, err := repo.Insert(contract)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -181,7 +222,13 @@ func UpdateContract(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewContractsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewContractsRepository(db).WithAuditUser(userID)
 	if err = repo.Update(contractID, contract); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
@@ -229,7 +276,13 @@ func CreateClassFromContract(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	contractsRepo := repositories.NewContractsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	contractsRepo := repositories.NewContractsRepository(db).WithAuditUser(userID)
 	classID, generatedLessonsCount, err := contractsRepo.CreateClassFromContract(contractID, class)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)

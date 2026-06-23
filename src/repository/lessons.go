@@ -8,11 +8,17 @@ import (
 )
 
 type LessonsRepository struct {
-	db *sql.DB
+	db          *sql.DB
+	auditUserID *uint64
 }
 
 func NewLessonsRepository(db *sql.DB) *LessonsRepository {
-	return &LessonsRepository{db}
+	return &LessonsRepository{db: db}
+}
+
+func (r *LessonsRepository) WithAuditUser(userID uint64) *LessonsRepository {
+	r.auditUserID = &userID
+	return r
 }
 
 func (r LessonsRepository) FetchStatuses() ([]models.LessonStatus, error) {
@@ -51,6 +57,10 @@ func (r LessonsRepository) Create(lesson models.Lesson) (uint64, error) {
 			_ = tx.Rollback()
 		}
 	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return 0, err
+	}
 
 	query := `
 		INSERT INTO treehousedb.aulas (
@@ -501,7 +511,21 @@ func (r LessonsRepository) FetchByTeacherID(teacherID uint64) ([]models.Lesson, 
 	return lessons, nil
 }
 
-func (r LessonsRepository) Update(lessonID uint64, lesson models.Lesson) error {
+func (r LessonsRepository) Update(lessonID uint64, lesson models.Lesson) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.aulas
 		SET
@@ -521,7 +545,7 @@ func (r LessonsRepository) Update(lessonID uint64, lesson models.Lesson) error {
 		teacherID = nil
 	}
 
-	_, err := r.db.Exec(
+	if _, err = tx.Exec(
 		query,
 		teacherID,
 		nullIfEmpty(lesson.Subject),
@@ -530,22 +554,55 @@ func (r LessonsRepository) Update(lessonID uint64, lesson models.Lesson) error {
 		nullIfEmpty(lesson.Notes),
 		lesson.LessonDate,
 		lessonID,
-	)
+	); err != nil {
+		return err
+	}
 
-	return err
+	return tx.Commit()
 }
 
-func (r LessonsRepository) Delete(lessonID uint64) error {
+func (r LessonsRepository) Delete(lessonID uint64) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		DELETE FROM treehousedb.aulas
 		WHERE id = ?
 	`
 
-	_, err := r.db.Exec(query, lessonID)
-	return err
+	if _, err = tx.Exec(query, lessonID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
-func (r LessonsRepository) AddStudent(lessonID uint64, studentID uint64, note string) error {
+func (r LessonsRepository) AddStudent(lessonID uint64, studentID uint64, note string) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO treehousedb.alunos_aulas (
 			id_aluno,
@@ -555,19 +612,39 @@ func (r LessonsRepository) AddStudent(lessonID uint64, studentID uint64, note st
 		) VALUES (?, ?, 'manual', ?)
 	`
 
-	_, err := r.db.Exec(query, studentID, lessonID, nullIfEmpty(note))
-	return err
+	if _, err = tx.Exec(query, studentID, lessonID, nullIfEmpty(note)); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
-func (r LessonsRepository) RemoveStudent(lessonID uint64, studentID uint64) error {
+func (r LessonsRepository) RemoveStudent(lessonID uint64, studentID uint64) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		DELETE FROM treehousedb.alunos_aulas
 		WHERE id_aluno = ?
 		  AND id_aula = ?
 	`
 
-	_, err := r.db.Exec(query, studentID, lessonID)
-	return err
+	if _, err = tx.Exec(query, studentID, lessonID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r LessonsRepository) FetchStudents(lessonID uint64) ([]models.Student, error) {
@@ -650,18 +727,49 @@ func (r LessonsRepository) BelongsToTeacher(lessonID uint64, teacherID uint64) (
 	return count > 0, nil
 }
 
-func (r LessonsRepository) UpdateStatus(lessonID uint64, statusID uint64) error {
+func (r LessonsRepository) UpdateStatus(lessonID uint64, statusID uint64) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.aulas
 		SET id_status = ?
 		WHERE id = ?
 	`
 
-	_, err := r.db.Exec(query, statusID, lessonID)
-	return err
+	if _, err = tx.Exec(query, statusID, lessonID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
-func (r LessonsRepository) RequestReschedule(lessonID uint64, requestedDate time.Time) error {
+func (r LessonsRepository) RequestReschedule(lessonID uint64, requestedDate time.Time) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.aulas
 		SET
@@ -671,11 +779,28 @@ func (r LessonsRepository) RequestReschedule(lessonID uint64, requestedDate time
 		WHERE id = ?
 	`
 
-	_, err := r.db.Exec(query, requestedDate, lessonID)
-	return err
+	if _, err = tx.Exec(query, requestedDate, lessonID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
-func (r LessonsRepository) ApproveReschedule(lessonID uint64) error {
+func (r LessonsRepository) ApproveReschedule(lessonID uint64) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.aulas
 		SET
@@ -687,11 +812,28 @@ func (r LessonsRepository) ApproveReschedule(lessonID uint64) error {
 		  AND data_aula_solicitada IS NOT NULL
 	`
 
-	_, err := r.db.Exec(query, lessonID)
-	return err
+	if _, err = tx.Exec(query, lessonID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
-func (r LessonsRepository) RejectReschedule(lessonID uint64) error {
+func (r LessonsRepository) RejectReschedule(lessonID uint64) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.aulas
 		SET
@@ -701,6 +843,9 @@ func (r LessonsRepository) RejectReschedule(lessonID uint64) error {
 		WHERE id = ?
 	`
 
-	_, err := r.db.Exec(query, lessonID)
-	return err
+	if _, err = tx.Exec(query, lessonID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }

@@ -17,6 +17,9 @@ type Customer struct {
 	Telefone       string     `json:"telefone"`
 	RG             string     `json:"rg,omitempty"`
 	Nascimento     *time.Time `json:"nascimento,omitempty"`
+	LGPDAceito     bool       `json:"lgpd_aceito"`
+	LGPDAceitoEm   *time.Time `json:"lgpd_aceito_em,omitempty"`
+	LGPDFinalidade string     `json:"lgpd_finalidade,omitempty"`
 	Enderecos      []Address  `json:"enderecos,omitempty"`
 	Ativo          bool       `json:"ativo"`
 	StudentsCount  uint64     `json:"students_count,omitempty"`
@@ -129,6 +132,7 @@ func (customer *Customer) format() {
 	customer.Email = strings.TrimSpace(customer.Email)
 	customer.Telefone = strings.TrimSpace(customer.Telefone)
 	customer.RG = keepAlphaNumeric(strings.TrimSpace(customer.RG))
+	customer.LGPDFinalidade = strings.TrimSpace(customer.LGPDFinalidade)
 }
 
 func keepOnlyDigits(value string) string {

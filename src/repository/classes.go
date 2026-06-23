@@ -9,17 +9,24 @@ import (
 	"time"
 
 	"github.com/brunoob35/TreeHouse-API/src/authentication"
+	"github.com/brunoob35/TreeHouse-API/src/config"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 )
 
 type ClassesRepository struct {
-	db *sql.DB
+	db          *sql.DB
+	auditUserID *uint64
 }
 
 const lessonStatusAulaDada uint64 = 2
 
 func NewClassesRepository(db *sql.DB) *ClassesRepository {
-	return &ClassesRepository{db}
+	return &ClassesRepository{db: db}
+}
+
+func (r *ClassesRepository) WithAuditUser(userID uint64) *ClassesRepository {
+	r.auditUserID = &userID
+	return r
 }
 
 type classRecurrencePayload struct {
@@ -68,6 +75,10 @@ func (r ClassesRepository) Create(class models.Class) (uint64, int, error) {
 
 	addressID, err := upsertClassAddressTx(tx, nil, class.Endereco)
 	if err != nil {
+		return 0, 0, err
+	}
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
 		return 0, 0, err
 	}
 
@@ -204,7 +215,7 @@ func buildLessonDates(recurrence classRecurrencePayload) ([]time.Time, error) {
 		startTime.Minute(),
 		0,
 		0,
-		time.UTC,
+		config.AppLocation,
 	)
 
 	var lessonDates []time.Time
@@ -377,6 +388,10 @@ func (r ClassesRepository) Update(classID uint64, class models.Class) error {
 		return err
 	}
 
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	addressID, err := upsertClassAddressTx(tx, currentClass.IDEndereco, class.Endereco)
 	if err != nil {
 		return err
@@ -460,6 +475,10 @@ func (r ClassesRepository) SoftDelete(classID uint64) error {
 		return err
 	}
 
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	if err = cancelOpenLessonsByClassTx(tx, classID); err != nil {
 		return err
 	}
@@ -467,25 +486,59 @@ func (r ClassesRepository) SoftDelete(classID uint64) error {
 	return tx.Commit()
 }
 
-func (r ClassesRepository) AddStudent(classID uint64, studentID uint64) error {
+func (r ClassesRepository) AddStudent(classID uint64, studentID uint64) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		INSERT INTO treehousedb.alunos_turmas (id_aluno, id_turma)
 		VALUES (?, ?)
 	`
 
-	_, err := r.db.Exec(query, studentID, classID)
-	return err
+	if _, err = tx.Exec(query, studentID, classID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
-func (r ClassesRepository) RemoveStudent(classID uint64, studentID uint64) error {
+func (r ClassesRepository) RemoveStudent(classID uint64, studentID uint64) (err error) {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		DELETE FROM treehousedb.alunos_turmas
 		WHERE id_aluno = ?
 		  AND id_turma = ?
 	`
 
-	_, err := r.db.Exec(query, studentID, classID)
-	return err
+	if _, err = tx.Exec(query, studentID, classID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 func (r ClassesRepository) FetchStudents(classID uint64) ([]models.Student, error) {
@@ -572,6 +625,10 @@ func (r ClassesRepository) CreatePrivateClassFromStudent(studentID uint64, class
 	className := strings.TrimSpace(class.Name)
 	if className == "" {
 		className = fmt.Sprintf("Turma %s", strings.TrimSpace(studentName))
+	}
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return 0, 0, err
 	}
 
 	queryClass := `
@@ -680,6 +737,10 @@ func (r *ClassesRepository) AssignProfessorToClass(classID, professorID uint64) 
 	}
 	if !classExists {
 		return fmt.Errorf("turma não encontrada")
+	}
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
 	}
 
 	queryUpdate := `

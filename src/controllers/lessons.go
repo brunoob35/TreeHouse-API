@@ -36,7 +36,13 @@ func FetchLessonStatuses(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewLessonsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewLessonsRepository(db).WithAuditUser(userID)
 	statuses, err := repository.FetchStatuses()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -71,7 +77,13 @@ func CreateLesson(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewLessonsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewLessonsRepository(db).WithAuditUser(userID)
 	lessonID, err := repository.Create(lesson)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -104,7 +116,13 @@ func FetchLesson(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewLessonsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewLessonsRepository(db).WithAuditUser(userID)
 	lesson, err := repository.FetchByID(lessonID)
 	if err != nil {
 		responses.Err(w, http.StatusNotFound, err)
@@ -122,7 +140,13 @@ func FetchAllLessons(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewLessonsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewLessonsRepository(db).WithAuditUser(userID)
 	lessons, err := repository.FetchAll()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -147,7 +171,13 @@ func FetchLessonsByClass(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewLessonsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewLessonsRepository(db).WithAuditUser(userID)
 	lessons, err := repository.FetchByClass(classID)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -189,7 +219,13 @@ func UpdateLesson(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewLessonsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewLessonsRepository(db).WithAuditUser(userID)
 	if err = repository.Update(lessonID, lesson); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
@@ -213,7 +249,13 @@ func DeleteLesson(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewLessonsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewLessonsRepository(db).WithAuditUser(userID)
 	if err = repository.Delete(lessonID); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return
@@ -237,7 +279,13 @@ func FetchLessonStudents(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewLessonsRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewLessonsRepository(db).WithAuditUser(userID)
 	students, err := repository.FetchStudents(lessonID)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)

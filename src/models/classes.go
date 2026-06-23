@@ -39,7 +39,7 @@ func (c *Class) Prepare() error {
 	c.RecurrenceJSON = strings.TrimSpace(c.RecurrenceJSON)
 
 	if c.Endereco != nil {
-		c.Endereco.CEP = strings.TrimSpace(c.Endereco.CEP)
+		c.Endereco.CEP = keepOnlyDigits(strings.TrimSpace(c.Endereco.CEP))
 		c.Endereco.Rua = strings.TrimSpace(c.Endereco.Rua)
 		c.Endereco.Numero = strings.TrimSpace(c.Endereco.Numero)
 		c.Endereco.Bairro = strings.TrimSpace(c.Endereco.Bairro)

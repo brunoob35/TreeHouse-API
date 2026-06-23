@@ -14,6 +14,8 @@ var (
 	Port      = 0
 	Cfg       = mysql.Config{}
 	SecretKey []byte
+	PIIKey    []byte
+	AppLocation = time.UTC
 )
 
 // LoadEnv loads the env variable
@@ -29,6 +31,13 @@ func LoadEnv() {
 		Port = 9000
 	}
 
+	appLocation, locationErr := time.LoadLocation("America/Sao_Paulo")
+	if locationErr != nil {
+		log.Println("falha ao carregar timezone America/Sao_Paulo, usando UTC:", locationErr)
+		appLocation = time.UTC
+	}
+	AppLocation = appLocation
+
 	Cfg = mysql.Config{
 		User:      os.Getenv("DB_USER"),
 		Passwd:    os.Getenv("DB_PASSWORD"),
@@ -36,8 +45,15 @@ func LoadEnv() {
 		Addr:      os.Getenv("DB_ADDR"),
 		DBName:    os.Getenv("DB_DATABASE"),
 		ParseTime: true,
-		Loc:       time.UTC,
+		Loc:       AppLocation,
+		Params: map[string]string{
+			"time_zone": "'-03:00'",
+		},
 	}
 
 	SecretKey = []byte(os.Getenv("SECRET_KEY"))
+	PIIKey = []byte(os.Getenv("PII_ENCRYPTION_KEY"))
+	if len(PIIKey) == 0 {
+		PIIKey = SecretKey
+	}
 }

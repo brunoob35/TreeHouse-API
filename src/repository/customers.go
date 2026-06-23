@@ -4,16 +4,24 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/brunoob35/TreeHouse-API/src/models"
+	"github.com/brunoob35/TreeHouse-API/src/security"
 )
 
 type CustomersRepository struct {
-	db *sql.DB
+	db          *sql.DB
+	auditUserID *uint64
 }
 
 func NewCustomersRepository(db *sql.DB) *CustomersRepository {
 	return &CustomersRepository{db: db}
+}
+
+func (r *CustomersRepository) WithAuditUser(userID uint64) *CustomersRepository {
+	r.auditUserID = &userID
+	return r
 }
 
 func nullableString(value string) interface{} {
@@ -24,7 +32,36 @@ func nullableString(value string) interface{} {
 	return value
 }
 
+func encryptCustomerPII(value string) (interface{}, interface{}, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil, nil
+	}
+
+	encrypted, err := security.EncryptPII(trimmed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	hash, err := security.HashPII(trimmed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return encrypted, hash, nil
+}
+
 func (r *CustomersRepository) Insert(customer models.Customer) (uint64, error) {
+	cpfProtected, cpfHash, err := encryptCustomerPII(customer.CPF)
+	if err != nil {
+		return 0, err
+	}
+
+	rgProtected, rgHash, err := encryptCustomerPII(customer.RG)
+	if err != nil {
+		return 0, err
+	}
+
 	tx, err := r.db.Begin()
 	if err != nil {
 		return 0, err
@@ -36,6 +73,10 @@ func (r *CustomersRepository) Insert(customer models.Customer) (uint64, error) {
 		}
 	}()
 
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return 0, err
+	}
+
 	queryCustomer := `
 		INSERT INTO treehousedb.clientes (
 			nome,
@@ -43,20 +84,34 @@ func (r *CustomersRepository) Insert(customer models.Customer) (uint64, error) {
 			email,
 			telefone,
 			rg,
+			cpf_protegido,
+			rg_protegido,
+			cpf_hash,
+			rg_hash,
 			nascimento,
-			ativo
-		) VALUES (?, ?, ?, ?, ?, ?, ?)
+			ativo,
+			lgpd_aceito,
+			lgpd_aceito_em,
+			lgpd_finalidade
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	customerResult, err := tx.Exec(
 		queryCustomer,
 		customer.Nome,
-		customer.CPF,
+		nil,
 		nullableString(customer.Email),
 		customer.Telefone,
-		nullableString(customer.RG),
+		nil,
+		cpfProtected,
+		rgProtected,
+		cpfHash,
+		rgHash,
 		customer.Nascimento,
 		customer.Ativo,
+		customer.LGPDAceito,
+		customer.LGPDAceitoEm,
+		nullableString(customer.LGPDFinalidade),
 	)
 	if err != nil {
 		return 0, err
@@ -137,26 +192,30 @@ func (r *CustomersRepository) Insert(customer models.Customer) (uint64, error) {
 		`
 
 		for _, student := range customer.Students {
-			studentResult, studentErr := tx.Exec(
-				queryStudent,
-				student.Nome,
-				student.Livro,
-				student.Alfabetizacao,
-				student.Nascimento,
-				true,
-			)
-			if studentErr != nil {
-				err = studentErr
-				return 0, err
+			studentID := int64(student.ID)
+
+			if studentID == 0 {
+				studentResult, studentErr := tx.Exec(
+					queryStudent,
+					student.Nome,
+					student.Livro,
+					student.Alfabetizacao,
+					student.Nascimento,
+					true,
+				)
+				if studentErr != nil {
+					err = studentErr
+					return 0, err
+				}
+
+				studentID, studentErr = studentResult.LastInsertId()
+				if studentErr != nil {
+					err = studentErr
+					return 0, err
+				}
 			}
 
-			studentID, studentErr := studentResult.LastInsertId()
-			if studentErr != nil {
-				err = studentErr
-				return 0, err
-			}
-
-			if _, studentErr = tx.Exec(queryLink, customerID, studentID); studentErr != nil {
+			if _, studentErr := tx.Exec(queryLink, customerID, studentID); studentErr != nil {
 				err = studentErr
 				return 0, err
 			}
@@ -179,8 +238,13 @@ func (r *CustomersRepository) FetchAll(search string) ([]models.Customer, error)
 			COALESCE(c.email, ''),
 			COALESCE(c.telefone, ''),
 			COALESCE(c.rg, ''),
+			c.cpf_protegido,
+			c.rg_protegido,
 			c.nascimento,
 			c.ativo,
+			c.lgpd_aceito,
+			c.lgpd_aceito_em,
+			COALESCE(c.lgpd_finalidade, ''),
 			COUNT(DISTINCT ca.id_aluno) AS students_count,
 			0 AS contracts_count,
 			c.created_at,
@@ -192,13 +256,19 @@ func (r *CustomersRepository) FetchAll(search string) ([]models.Customer, error)
 
 	var args []interface{}
 	if search != "" {
+		cpfSearchHash := ""
+		digitsOnlySearch := strings.NewReplacer(".", "", "-", "", " ", "", "(", "", ")", "", "+", "").Replace(search)
+		if digitsOnlySearch != "" {
+			cpfSearchHash, _ = security.HashPII(digitsOnlySearch)
+		}
 		query += `
 			WHERE
 				LOWER(c.nome) LIKE ?
 				OR LOWER(COALESCE(c.email, '')) LIKE ?
 				OR REPLACE(COALESCE(c.cpf, ''), '.', '') LIKE REPLACE(?, '.', '')
+				OR (? <> '' AND c.cpf_hash = ?)
 		`
-		args = append(args, "%"+search+"%", "%"+search+"%", "%"+search+"%")
+		args = append(args, "%"+search+"%", "%"+search+"%", "%"+search+"%", cpfSearchHash, cpfSearchHash)
 	}
 
 	query += `
@@ -209,8 +279,13 @@ func (r *CustomersRepository) FetchAll(search string) ([]models.Customer, error)
 			c.email,
 			c.telefone,
 			c.rg,
+			c.cpf_protegido,
+			c.rg_protegido,
 			c.nascimento,
 			c.ativo,
+			c.lgpd_aceito,
+			c.lgpd_aceito_em,
+			c.lgpd_finalidade,
 			c.created_at,
 			c.updated_at
 		ORDER BY c.nome
@@ -225,17 +300,28 @@ func (r *CustomersRepository) FetchAll(search string) ([]models.Customer, error)
 	var customers []models.Customer
 	for rows.Next() {
 		var customer models.Customer
+		var cpfLegacy string
+		var rgLegacy string
+		var cpfProtected sql.NullString
+		var rgProtected sql.NullString
 		var nascimento sql.NullTime
+		var lgpdAcceptedAt sql.NullTime
+		var lgpdPurpose string
 
 		err = rows.Scan(
 			&customer.ID,
 			&customer.Nome,
-			&customer.CPF,
+			&cpfLegacy,
 			&customer.Email,
 			&customer.Telefone,
-			&customer.RG,
+			&rgLegacy,
+			&cpfProtected,
+			&rgProtected,
 			&nascimento,
 			&customer.Ativo,
+			&customer.LGPDAceito,
+			&lgpdAcceptedAt,
+			&lgpdPurpose,
 			&customer.StudentsCount,
 			&customer.ContractsCount,
 			&customer.CreatedAt,
@@ -248,6 +334,26 @@ func (r *CustomersRepository) FetchAll(search string) ([]models.Customer, error)
 		if nascimento.Valid {
 			customer.Nascimento = &nascimento.Time
 		}
+		if cpfProtected.Valid {
+			customer.CPF, err = security.DecryptPII(cpfProtected.String)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			customer.CPF = cpfLegacy
+		}
+		if rgProtected.Valid {
+			customer.RG, err = security.DecryptPII(rgProtected.String)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			customer.RG = rgLegacy
+		}
+		if lgpdAcceptedAt.Valid {
+			customer.LGPDAceitoEm = &lgpdAcceptedAt.Time
+		}
+		customer.LGPDFinalidade = lgpdPurpose
 
 		customers = append(customers, customer)
 	}
@@ -268,8 +374,13 @@ func (r *CustomersRepository) FetchByID(id uint64) (models.Customer, error) {
 			COALESCE(c.email, ''),
 			COALESCE(c.telefone, ''),
 			COALESCE(c.rg, ''),
+			c.cpf_protegido,
+			c.rg_protegido,
 			c.nascimento,
 			c.ativo,
+			c.lgpd_aceito,
+			c.lgpd_aceito_em,
+			COALESCE(c.lgpd_finalidade, ''),
 			COUNT(DISTINCT ca.id_aluno) AS students_count,
 			0 AS contracts_count,
 			c.created_at,
@@ -285,23 +396,39 @@ func (r *CustomersRepository) FetchByID(id uint64) (models.Customer, error) {
 			c.email,
 			c.telefone,
 			c.rg,
+			c.cpf_protegido,
+			c.rg_protegido,
 			c.nascimento,
 			c.ativo,
+			c.lgpd_aceito,
+			c.lgpd_aceito_em,
+			c.lgpd_finalidade,
 			c.created_at,
 			c.updated_at
 	`
 
 	var customer models.Customer
+	var cpfLegacy string
+	var rgLegacy string
+	var cpfProtected sql.NullString
+	var rgProtected sql.NullString
 	var nascimento sql.NullTime
+	var lgpdAcceptedAt sql.NullTime
+	var lgpdPurpose string
 	err := r.db.QueryRow(query, id).Scan(
 		&customer.ID,
 		&customer.Nome,
-		&customer.CPF,
+		&cpfLegacy,
 		&customer.Email,
 		&customer.Telefone,
-		&customer.RG,
+		&rgLegacy,
+		&cpfProtected,
+		&rgProtected,
 		&nascimento,
 		&customer.Ativo,
+		&customer.LGPDAceito,
+		&lgpdAcceptedAt,
+		&lgpdPurpose,
 		&customer.StudentsCount,
 		&customer.ContractsCount,
 		&customer.CreatedAt,
@@ -317,11 +444,56 @@ func (r *CustomersRepository) FetchByID(id uint64) (models.Customer, error) {
 	if nascimento.Valid {
 		customer.Nascimento = &nascimento.Time
 	}
+	if cpfProtected.Valid {
+		customer.CPF, err = security.DecryptPII(cpfProtected.String)
+		if err != nil {
+			return models.Customer{}, err
+		}
+	} else {
+		customer.CPF = cpfLegacy
+	}
+	if rgProtected.Valid {
+		customer.RG, err = security.DecryptPII(rgProtected.String)
+		if err != nil {
+			return models.Customer{}, err
+		}
+	} else {
+		customer.RG = rgLegacy
+	}
+	if lgpdAcceptedAt.Valid {
+		customer.LGPDAceitoEm = &lgpdAcceptedAt.Time
+	}
+	customer.LGPDFinalidade = lgpdPurpose
 
 	return customer, nil
 }
 
 func (r *CustomersRepository) Update(id uint64, customer models.Customer) error {
+	cpfProtected, cpfHash, err := encryptCustomerPII(customer.CPF)
+	if err != nil {
+		return err
+	}
+
+	rgProtected, rgHash, err := encryptCustomerPII(customer.RG)
+	if err != nil {
+		return err
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.clientes
 		SET
@@ -330,21 +502,35 @@ func (r *CustomersRepository) Update(id uint64, customer models.Customer) error 
 			email = ?,
 			telefone = ?,
 			rg = ?,
+			cpf_protegido = ?,
+			rg_protegido = ?,
+			cpf_hash = ?,
+			rg_hash = ?,
 			nascimento = ?,
 			ativo = ?,
+			lgpd_aceito = ?,
+			lgpd_aceito_em = ?,
+			lgpd_finalidade = ?,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`
 
-	result, err := r.db.Exec(
+	result, err := tx.Exec(
 		query,
 		customer.Nome,
-		customer.CPF,
+		nil,
 		nullableString(customer.Email),
 		customer.Telefone,
-		nullableString(customer.RG),
+		nil,
+		cpfProtected,
+		rgProtected,
+		cpfHash,
+		rgHash,
 		customer.Nascimento,
 		customer.Ativo,
+		customer.LGPDAceito,
+		customer.LGPDAceitoEm,
+		nullableString(customer.LGPDFinalidade),
 		id,
 	)
 	if err != nil {
@@ -358,6 +544,10 @@ func (r *CustomersRepository) Update(id uint64, customer models.Customer) error 
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("nenhum cliente encontrado com id %d", id)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
 	}
 
 	return nil
@@ -374,6 +564,10 @@ func (r *CustomersRepository) ReplaceAddresses(customerID uint64, addresses []mo
 			_ = tx.Rollback()
 		}
 	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
 
 	deleteLinksQuery := `
 		DELETE FROM treehousedb.enderecos_clientes
@@ -454,6 +648,10 @@ func (r *CustomersRepository) ReplaceStudents(customerID uint64, students []mode
 		}
 	}()
 
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	deleteLinksQuery := `
 		DELETE FROM treehousedb.clientes_alunos
 		WHERE id_cliente = ?
@@ -520,6 +718,21 @@ func (r *CustomersRepository) ReplaceStudents(customerID uint64, students []mode
 }
 
 func (r *CustomersRepository) SoftDelete(id uint64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.clientes
 		SET
@@ -528,7 +741,7 @@ func (r *CustomersRepository) SoftDelete(id uint64) error {
 		WHERE id = ?
 	`
 
-	result, err := r.db.Exec(query, id)
+	result, err := tx.Exec(query, id)
 	if err != nil {
 		return err
 	}
@@ -540,6 +753,10 @@ func (r *CustomersRepository) SoftDelete(id uint64) error {
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("nenhum cliente encontrado com id %d", id)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
 	}
 
 	return nil

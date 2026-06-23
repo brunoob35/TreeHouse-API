@@ -11,20 +11,23 @@ import (
 )
 
 type User struct {
-	ID         uint64       `json:"id,omitempty"`
-	IDEndereco *uint64      `json:"id_endereco,omitempty"`
-	Nome       string       `json:"nome"`
-	Email      string       `json:"email"`
-	Senha      string       `json:"senha"`
-	CPF        string       `json:"cpf,omitempty"`
-	RG         string       `json:"rg,omitempty"`
-	Telefone   string       `json:"telefone,omitempty"`
-	Ativo      bool         `json:"ativo"`
-	Nascimento *time.Time   `json:"nascimento,omitempty"`
-	CreatedAt  time.Time    `json:"created_at,omitempty"`
-	UpdatedAt  time.Time    `json:"updated_at,omitempty"`
-	Endereco   *Address     `json:"endereco,omitempty"`
-	Permissoes []Permission `json:"permissoes,omitempty"`
+	ID             uint64       `json:"id,omitempty"`
+	IDEndereco     *uint64      `json:"id_endereco,omitempty"`
+	Nome           string       `json:"nome"`
+	Email          string       `json:"email"`
+	Senha          string       `json:"senha"`
+	CPF            string       `json:"cpf,omitempty"`
+	RG             string       `json:"rg,omitempty"`
+	Telefone       string       `json:"telefone,omitempty"`
+	Ativo          bool         `json:"ativo"`
+	Nascimento     *time.Time   `json:"nascimento,omitempty"`
+	LGPDAceito     bool         `json:"lgpd_aceito"`
+	LGPDAceitoEm   *time.Time   `json:"lgpd_aceito_em,omitempty"`
+	LGPDFinalidade string       `json:"lgpd_finalidade,omitempty"`
+	CreatedAt      time.Time    `json:"created_at,omitempty"`
+	UpdatedAt      time.Time    `json:"updated_at,omitempty"`
+	Endereco       *Address     `json:"endereco,omitempty"`
+	Permissoes     []Permission `json:"permissoes,omitempty"`
 }
 
 type Permission struct {
@@ -74,6 +77,20 @@ func (user *User) format(step string) error {
 	user.CPF = strings.TrimSpace(user.CPF)
 	user.RG = strings.TrimSpace(user.RG)
 	user.Telefone = strings.TrimSpace(user.Telefone)
+	user.LGPDFinalidade = strings.TrimSpace(user.LGPDFinalidade)
+
+	if user.LGPDAceito {
+		if user.LGPDAceitoEm == nil {
+			now := time.Now().UTC()
+			user.LGPDAceitoEm = &now
+		}
+		if user.LGPDFinalidade == "" {
+			user.LGPDFinalidade = "Cadastro funcional, gestão contratual, comunicação operacional e uso interno da plataforma TreeHouse."
+		}
+	} else {
+		user.LGPDAceitoEm = nil
+		user.LGPDFinalidade = ""
+	}
 
 	if user.Endereco != nil {
 		user.Endereco.Rua = strings.TrimSpace(user.Endereco.Rua)

@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
 	"github.com/brunoob35/TreeHouse-API/src/persistency"
 	"github.com/brunoob35/TreeHouse-API/src/repository"
@@ -40,7 +41,13 @@ func CreateClass(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewClassesRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewClassesRepository(db).WithAuditUser(userID)
 	classID, generatedLessonsCount, err := repository.Create(class)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -89,7 +96,13 @@ func FetchClass(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewClassesRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewClassesRepository(db).WithAuditUser(userID)
 	class, err := repository.FetchByID(classID)
 	if err != nil {
 		responses.Err(w, http.StatusNotFound, err)
@@ -107,7 +120,13 @@ func FetchAllActiveClasses(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewClassesRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewClassesRepository(db).WithAuditUser(userID)
 	classes, err := repository.FetchAllActive()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -125,7 +144,13 @@ func FetchAllClasses(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewClassesRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewClassesRepository(db).WithAuditUser(userID)
 	classes, err := repository.FetchAll()
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -167,7 +192,13 @@ func UpdateClass(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repository := repositories.NewClassesRepository(db)
+	userID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repository := repositories.NewClassesRepository(db).WithAuditUser(userID)
 	if err = repository.Update(classID, class); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
 		return

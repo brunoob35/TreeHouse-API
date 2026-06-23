@@ -49,7 +49,13 @@ func createUserWithPermission(w http.ResponseWriter, r *http.Request, permission
 	}
 	defer db.Close()
 
-	repo := repositories.NewUsersRepository(db)
+	requestUserID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewUsersRepository(db).WithAuditUser(requestUserID)
 
 	newUser.ID, err = repo.InsertWithPermission(newUser, uint64(permissionID))
 	if err != nil {
@@ -71,7 +77,13 @@ func FetchUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewUsersRepository(db)
+	requestUserID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewUsersRepository(db).WithAuditUser(requestUserID)
 
 	users, err := repo.FetchAllUsers(nome)
 	if err != nil {
@@ -99,7 +111,13 @@ func FetchUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewUsersRepository(db)
+	requestUserID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewUsersRepository(db).WithAuditUser(requestUserID)
 
 	user, err := repo.FetchByID(userID)
 	if err != nil {
@@ -123,7 +141,13 @@ func FetchActiveUsers(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewUsersRepository(db)
+	requestUserID, err := authentication.ExtractUserID(r)
+	if err != nil {
+		responses.Err(w, http.StatusUnauthorized, err)
+		return
+	}
+
+	repo := repositories.NewUsersRepository(db).WithAuditUser(requestUserID)
 
 	users, err := repo.FetchAllActiveUsers(nome)
 	if err != nil {
@@ -170,7 +194,19 @@ func UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewUsersRepository(db)
+	repo := repositories.NewUsersRepository(db).WithAuditUser(userID)
+
+	currentUser, err := repo.FetchByID(userID)
+	if err != nil {
+		responses.Err(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	if !strings.Contains(string(bodyRequest), "\"lgpd_aceito\"") {
+		user.LGPDAceito = currentUser.LGPDAceito
+		user.LGPDAceitoEm = currentUser.LGPDAceitoEm
+		user.LGPDFinalidade = currentUser.LGPDFinalidade
+	}
 
 	if err = repo.Update(userID, user); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -197,7 +233,7 @@ func DeleteUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewUsersRepository(db)
+	repo := repositories.NewUsersRepository(db).WithAuditUser(userID)
 
 	if err = repo.Delete(userID); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -221,7 +257,7 @@ func FetchCurrentUser(w http.ResponseWriter, r *http.Request) {
 	}
 	defer db.Close()
 
-	repo := repositories.NewUsersRepository(db)
+	repo := repositories.NewUsersRepository(db).WithAuditUser(userID)
 	user, err := repo.FetchByID(userID)
 	if err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)
@@ -272,6 +308,11 @@ func UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 
 	user.Ativo = currentUser.Ativo
 	user.IDEndereco = currentUser.IDEndereco
+	if !strings.Contains(string(bodyRequest), "\"lgpd_aceito\"") {
+		user.LGPDAceito = currentUser.LGPDAceito
+		user.LGPDAceitoEm = currentUser.LGPDAceitoEm
+		user.LGPDFinalidade = currentUser.LGPDFinalidade
+	}
 
 	if err = repo.Update(userID, user); err != nil {
 		responses.Err(w, http.StatusInternalServerError, err)

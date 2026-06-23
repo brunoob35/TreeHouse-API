@@ -12,7 +12,8 @@ const (
 	ContractStatusActive          uint64 = 1
 	ContractStatusPending         uint64 = 2
 	ContractStatusExpired         uint64 = 3
-	ContractStatusUpcomingDue     uint64 = 4
+	ContractStatusInactive        uint64 = 4
+	ContractStatusUpcomingDue     uint64 = 5
 	ContractTypeAnnual            uint64 = 1
 	ContractTypeSemiannual        uint64 = 2
 	ContractTypeQuarterly         uint64 = 3
@@ -22,44 +23,44 @@ const (
 )
 
 type Contract struct {
-	ID                      uint64     `json:"id,omitempty"`
-	RepresentativeCustomerID uint64    `json:"id_cliente_representante,omitempty"`
-	ResponsibleCustomerID   uint64     `json:"id_cliente_responsavel,omitempty"`
-	StudentID               uint64     `json:"id_aluno,omitempty"`
-	ContractTypeID          uint64     `json:"id_tipo_contrato"`
-	StatusID                uint64     `json:"id_status,omitempty"`
-	ClassID                 *uint64    `json:"id_turma,omitempty"`
-	Value                   float64    `json:"valor"`
-	RepresentativeEmail     string     `json:"email_representante,omitempty"`
-	RepresentativeCPF       string     `json:"cpf_representante,omitempty"`
-	RG                      string     `json:"rg,omitempty"`
-	RepresentativePhone     string     `json:"telefone_representante,omitempty"`
-	RepresentativeCivilStatus string   `json:"est_civil_representante,omitempty"`
-	DiscountPercentage      float64    `json:"desconto_porcentagem,omitempty"`
-	FinalValue              float64    `json:"valor_final,omitempty"`
-	Installments            *uint64    `json:"parcelas,omitempty"`
-	InstallmentsDescription string     `json:"parcelas_descricao,omitempty"`
-	LessonsCount            *uint64    `json:"numero_aulas,omitempty"`
-	Periodicity             string     `json:"periodicidade,omitempty"`
-	LessonDuration          string     `json:"tempo_aula,omitempty"`
-	ContractDuration        string     `json:"tempo_contrato,omitempty"`
-	StartDate               *time.Time `json:"inicio_contrato,omitempty"`
-	DueDate                 *time.Time `json:"vencimento_contrato,omitempty"`
-	FirstLessonDate         *time.Time `json:"primeira_aula,omitempty"`
-	CreatedAt               time.Time  `json:"created_at,omitempty"`
-	UpdatedAt               time.Time  `json:"updated_at,omitempty"`
+	ID                        uint64     `json:"id,omitempty"`
+	RepresentativeCustomerID  uint64     `json:"id_cliente_representante,omitempty"`
+	ResponsibleCustomerID     uint64     `json:"id_cliente_responsavel,omitempty"`
+	StudentID                 uint64     `json:"id_aluno,omitempty"`
+	ContractTypeID            uint64     `json:"id_tipo_contrato"`
+	StatusID                  uint64     `json:"id_status,omitempty"`
+	ClassID                   *uint64    `json:"id_turma,omitempty"`
+	Value                     float64    `json:"valor"`
+	RepresentativeEmail       string     `json:"email_representante,omitempty"`
+	RepresentativeCPF         string     `json:"cpf_representante,omitempty"`
+	RG                        string     `json:"rg,omitempty"`
+	RepresentativePhone       string     `json:"telefone_representante,omitempty"`
+	RepresentativeCivilStatus string     `json:"est_civil_representante,omitempty"`
+	DiscountPercentage        float64    `json:"desconto_porcentagem,omitempty"`
+	FinalValue                float64    `json:"valor_final,omitempty"`
+	Installments              *uint64    `json:"parcelas,omitempty"`
+	InstallmentsDescription   string     `json:"parcelas_descricao,omitempty"`
+	LessonsCount              *uint64    `json:"numero_aulas,omitempty"`
+	Periodicity               string     `json:"periodicidade,omitempty"`
+	LessonDuration            string     `json:"tempo_aula,omitempty"`
+	ContractDuration          string     `json:"tempo_contrato,omitempty"`
+	StartDate                 *time.Time `json:"inicio_contrato,omitempty"`
+	DueDate                   *time.Time `json:"vencimento_contrato,omitempty"`
+	FirstLessonDate           *time.Time `json:"primeira_aula,omitempty"`
+	CreatedAt                 time.Time  `json:"created_at,omitempty"`
+	UpdatedAt                 time.Time  `json:"updated_at,omitempty"`
 
-	StudentName             string     `json:"student_name,omitempty"`
-	ResponsibleName         string     `json:"responsible_name,omitempty"`
-	RepresentativeName      string     `json:"representative_name,omitempty"`
-	ContractTypeName        string     `json:"contract_type_name,omitempty"`
-	StatusName              string     `json:"status_name,omitempty"`
-	EffectiveStatusID       uint64     `json:"effective_status_id,omitempty"`
-	EffectiveStatusName     string     `json:"effective_status_name,omitempty"`
+	StudentName         string `json:"student_name,omitempty"`
+	ResponsibleName     string `json:"responsible_name,omitempty"`
+	RepresentativeName  string `json:"representative_name,omitempty"`
+	ContractTypeName    string `json:"contract_type_name,omitempty"`
+	StatusName          string `json:"status_name,omitempty"`
+	EffectiveStatusID   uint64 `json:"effective_status_id,omitempty"`
+	EffectiveStatusName string `json:"effective_status_name,omitempty"`
 
-	ResponsibleCustomer     *Customer  `json:"responsavel,omitempty"`
-	RepresentativeCustomer  *Customer  `json:"representante,omitempty"`
-	Student                 *Student   `json:"aluno,omitempty"`
+	ResponsibleCustomer    *Customer `json:"responsavel,omitempty"`
+	RepresentativeCustomer *Customer `json:"representante,omitempty"`
+	Student                *Student  `json:"aluno,omitempty"`
 }
 
 type ContractStatus struct {
@@ -200,6 +201,10 @@ func deriveContractDueDate(startDate time.Time, contractTypeID uint64) *time.Tim
 }
 
 func ComputeEffectiveContractStatus(contract Contract, now time.Time) (uint64, string) {
+	if contract.StatusID == ContractStatusInactive {
+		return ContractStatusInactive, "Inativo"
+	}
+
 	if contract.StatusID == ContractStatusExpired {
 		return ContractStatusExpired, "Vencido"
 	}
@@ -224,6 +229,8 @@ func ComputeEffectiveContractStatus(contract Contract, now time.Time) (uint64, s
 		return ContractStatusPending, "Pendente"
 	case ContractStatusExpired:
 		return ContractStatusExpired, "Vencido"
+	case ContractStatusInactive:
+		return ContractStatusInactive, "Inativo"
 	default:
 		if contract.StatusName != "" {
 			return contract.StatusID, contract.StatusName

@@ -18,6 +18,7 @@ import (
 type loginResponse struct {
 	Token       string `json:"token,omitempty"`
 	FirstAccess bool   `json:"first_access,omitempty"`
+	LGPDPending bool   `json:"lgpd_pending,omitempty"`
 	Email       string `json:"email,omitempty"`
 }
 
@@ -98,7 +99,8 @@ func Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	responses.JSON(w, http.StatusOK, loginResponse{
-		Token: token,
+		Token:       token,
+		LGPDPending: !userFound.LGPDAceito,
 	})
 }
 

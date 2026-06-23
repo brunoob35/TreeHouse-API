@@ -9,11 +9,13 @@ import (
 
 	"github.com/brunoob35/TreeHouse-API/src/authentication"
 	"github.com/brunoob35/TreeHouse-API/src/models"
+	"github.com/brunoob35/TreeHouse-API/src/security"
 )
 
 // UsersRepository is responsible for all database operations related to users.
 type UsersRepository struct {
-	db *sql.DB
+	db          *sql.DB
+	auditUserID *uint64
 }
 
 type userRowScanner interface {
@@ -25,6 +27,11 @@ func NewUsersRepository(db *sql.DB) *UsersRepository {
 	return &UsersRepository{db: db}
 }
 
+func (r *UsersRepository) WithAuditUser(userID uint64) *UsersRepository {
+	r.auditUserID = &userID
+	return r
+}
+
 func nullableUserString(value string) interface{} {
 	trimmed := strings.TrimSpace(value)
 	if trimmed == "" {
@@ -33,13 +40,40 @@ func nullableUserString(value string) interface{} {
 	return trimmed
 }
 
+func userPasswordValue(value string) string {
+	return strings.TrimSpace(value)
+}
+
+func encryptUserPII(value string) (interface{}, interface{}, error) {
+	trimmed := strings.TrimSpace(value)
+	if trimmed == "" {
+		return nil, nil, nil
+	}
+
+	encrypted, err := security.EncryptPII(trimmed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	hash, err := security.HashPII(trimmed)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return encrypted, hash, nil
+}
+
 func scanUser(scanner userRowScanner) (models.User, error) {
 	var user models.User
 	var password sql.NullString
-	var cpf sql.NullString
-	var rg sql.NullString
+	var cpfLegacy sql.NullString
+	var rgLegacy sql.NullString
+	var cpfProtected sql.NullString
+	var rgProtected sql.NullString
 	var phone sql.NullString
 	var birth sql.NullTime
+	var lgpdAcceptedAt sql.NullTime
+	var lgpdPurpose sql.NullString
 
 	err := scanner.Scan(
 		&user.ID,
@@ -47,11 +81,16 @@ func scanUser(scanner userRowScanner) (models.User, error) {
 		&password,
 		&user.Nome,
 		&user.Email,
-		&cpf,
-		&rg,
+		&cpfLegacy,
+		&rgLegacy,
+		&cpfProtected,
+		&rgProtected,
 		&phone,
 		&user.Ativo,
 		&birth,
+		&user.LGPDAceito,
+		&lgpdAcceptedAt,
+		&lgpdPurpose,
 		&user.CreatedAt,
 		&user.UpdatedAt,
 	)
@@ -62,17 +101,33 @@ func scanUser(scanner userRowScanner) (models.User, error) {
 	if password.Valid {
 		user.Senha = password.String
 	}
-	if cpf.Valid {
-		user.CPF = cpf.String
+	if cpfProtected.Valid {
+		user.CPF, err = security.DecryptPII(cpfProtected.String)
+		if err != nil {
+			return models.User{}, err
+		}
+	} else if cpfLegacy.Valid {
+		user.CPF = cpfLegacy.String
 	}
-	if rg.Valid {
-		user.RG = rg.String
+	if rgProtected.Valid {
+		user.RG, err = security.DecryptPII(rgProtected.String)
+		if err != nil {
+			return models.User{}, err
+		}
+	} else if rgLegacy.Valid {
+		user.RG = rgLegacy.String
 	}
 	if phone.Valid {
 		user.Telefone = phone.String
 	}
 	if birth.Valid {
 		user.Nascimento = &birth.Time
+	}
+	if lgpdAcceptedAt.Valid {
+		user.LGPDAceitoEm = &lgpdAcceptedAt.Time
+	}
+	if lgpdPurpose.Valid {
+		user.LGPDFinalidade = lgpdPurpose.String
 	}
 
 	return user, nil
@@ -92,9 +147,14 @@ func (r *UsersRepository) FetchByID(id uint64) (models.User, error) {
 			email,
 			cpf,
 			rg,
+			cpf_protegido,
+			rg_protegido,
 			telefone,
 			ativo,
 			nascimento,
+			lgpd_aceito,
+			lgpd_aceito_em,
+			lgpd_finalidade,
 			created_at,
 			updated_at
 		FROM treehousedb.usuarios
@@ -125,9 +185,14 @@ func (r *UsersRepository) FetchByEmail(email string) (models.User, error) {
 			email,
 			cpf,
 			rg,
+			cpf_protegido,
+			rg_protegido,
 			telefone,
 			ativo,
 			nascimento,
+			lgpd_aceito,
+			lgpd_aceito_em,
+			lgpd_finalidade,
 			created_at,
 			updated_at
 		FROM treehousedb.usuarios
@@ -203,6 +268,31 @@ func (r *UsersRepository) FetchPermissionMaskByUser(userID uint64) (uint64, erro
 // This function inserts only the user base record. Permission assignments
 // must be handled separately through the relation table "usuarios_permissoes".
 func (r *UsersRepository) Insert(user models.User) (uint64, error) {
+	cpfProtected, cpfHash, err := encryptUserPII(user.CPF)
+	if err != nil {
+		return 0, err
+	}
+
+	rgProtected, rgHash, err := encryptUserPII(user.RG)
+	if err != nil {
+		return 0, err
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return 0, err
+	}
+
 	query := `
 		INSERT INTO treehousedb.usuarios (
 			senha,
@@ -210,22 +300,36 @@ func (r *UsersRepository) Insert(user models.User) (uint64, error) {
 			email,
 			cpf,
 			rg,
+			cpf_protegido,
+			rg_protegido,
+			cpf_hash,
+			rg_hash,
 			telefone,
 			ativo,
-			nascimento
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			nascimento,
+			lgpd_aceito,
+			lgpd_aceito_em,
+			lgpd_finalidade
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
-	result, err := r.db.Exec(
+	result, err := tx.Exec(
 		query,
-		nullableUserString(user.Senha),
+		userPasswordValue(user.Senha),
 		user.Nome,
 		user.Email,
-		nullableUserString(user.CPF),
-		nullableUserString(user.RG),
+		nil,
+		nil,
+		cpfProtected,
+		rgProtected,
+		cpfHash,
+		rgHash,
 		nullableUserString(user.Telefone),
 		user.Ativo,
 		user.Nascimento,
+		user.LGPDAceito,
+		user.LGPDAceitoEm,
+		nullableUserString(user.LGPDFinalidade),
 	)
 	if err != nil {
 		return 0, err
@@ -236,12 +340,26 @@ func (r *UsersRepository) Insert(user models.User) (uint64, error) {
 		return 0, err
 	}
 
+	if err = tx.Commit(); err != nil {
+		return 0, err
+	}
+
 	return uint64(insertedID), nil
 }
 
 // InsertWithPermission creates a new user and associates a permission
 // in the same transaction.
 func (r *UsersRepository) InsertWithPermission(user models.User, permissionID uint64) (uint64, error) {
+	cpfProtected, cpfHash, err := encryptUserPII(user.CPF)
+	if err != nil {
+		return 0, err
+	}
+
+	rgProtected, rgHash, err := encryptUserPII(user.RG)
+	if err != nil {
+		return 0, err
+	}
+
 	tx, err := r.db.Begin()
 	if err != nil {
 		return 0, err
@@ -254,6 +372,11 @@ func (r *UsersRepository) InsertWithPermission(user models.User, permissionID ui
 		}
 	}()
 
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		_ = tx.Rollback()
+		return 0, err
+	}
+
 	insertUserQuery := `
 		INSERT INTO treehousedb.usuarios (
 			senha,
@@ -261,22 +384,36 @@ func (r *UsersRepository) InsertWithPermission(user models.User, permissionID ui
 			email,
 			cpf,
 			rg,
+			cpf_protegido,
+			rg_protegido,
+			cpf_hash,
+			rg_hash,
 			telefone,
 			ativo,
-			nascimento
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+			nascimento,
+			lgpd_aceito,
+			lgpd_aceito_em,
+			lgpd_finalidade
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`
 
 	result, err := tx.Exec(
 		insertUserQuery,
-		nullableUserString(user.Senha),
+		userPasswordValue(user.Senha),
 		user.Nome,
 		user.Email,
-		nullableUserString(user.CPF),
-		nullableUserString(user.RG),
+		nil,
+		nil,
+		cpfProtected,
+		rgProtected,
+		cpfHash,
+		rgHash,
 		nullableUserString(user.Telefone),
 		user.Ativo,
 		user.Nascimento,
+		user.LGPDAceito,
+		user.LGPDAceitoEm,
+		nullableUserString(user.LGPDFinalidade),
 	)
 	if err != nil {
 		_ = tx.Rollback()
@@ -313,6 +450,31 @@ func (r *UsersRepository) InsertWithPermission(user models.User, permissionID ui
 // Permission assignments are not updated here because they are stored in a
 // separate many-to-many relation table.
 func (r *UsersRepository) Update(id uint64, user models.User) error {
+	cpfProtected, cpfHash, err := encryptUserPII(user.CPF)
+	if err != nil {
+		return err
+	}
+
+	rgProtected, rgHash, err := encryptUserPII(user.RG)
+	if err != nil {
+		return err
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.usuarios
 		SET
@@ -321,23 +483,37 @@ func (r *UsersRepository) Update(id uint64, user models.User) error {
 			email = ?,
 			cpf = ?,
 			rg = ?,
+			cpf_protegido = ?,
+			rg_protegido = ?,
+			cpf_hash = ?,
+			rg_hash = ?,
 			telefone = ?,
 			ativo = ?,
 			nascimento = ?,
+			lgpd_aceito = ?,
+			lgpd_aceito_em = ?,
+			lgpd_finalidade = ?,
 			updated_at = CURRENT_TIMESTAMP
 		WHERE id = ?
 	`
 
-	result, err := r.db.Exec(
+	result, err := tx.Exec(
 		query,
 		user.IDEndereco,
 		user.Nome,
 		user.Email,
-		nullableUserString(user.CPF),
-		nullableUserString(user.RG),
+		nil,
+		nil,
+		cpfProtected,
+		rgProtected,
+		cpfHash,
+		rgHash,
 		nullableUserString(user.Telefone),
 		user.Ativo,
 		user.Nascimento,
+		user.LGPDAceito,
+		user.LGPDAceitoEm,
+		nullableUserString(user.LGPDFinalidade),
 		id,
 	)
 	if err != nil {
@@ -353,12 +529,31 @@ func (r *UsersRepository) Update(id uint64, user models.User) error {
 		return fmt.Errorf("nenhum user encontrado com id %d", id)
 	}
 
+	if err = tx.Commit(); err != nil {
+		return err
+	}
+
 	return nil
 }
 
 // UpdatePassword updates only the user's password hash.
 func (r *UsersRepository) UpdatePassword(userID uint64, senhaHash string) error {
-	statement, err := r.db.Prepare(`
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
+	statement, err := tx.Prepare(`
 		UPDATE treehousedb.usuarios
 		SET senha = ?
 		WHERE id = ?
@@ -368,14 +563,32 @@ func (r *UsersRepository) UpdatePassword(userID uint64, senhaHash string) error 
 	}
 	defer statement.Close()
 
-	_, err = statement.Exec(senhaHash, userID)
-	return err
+	if _, err = statement.Exec(senhaHash, userID); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // Delete performs a soft delete on a user.
 // Instead of removing the row from the database,
 // this operation sets the "ativo" field to false.
 func (r *UsersRepository) Delete(id uint64) error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	if err = setAuditUserTx(tx, r.auditUserID); err != nil {
+		return err
+	}
+
 	query := `
 		UPDATE treehousedb.usuarios
 		SET
@@ -384,7 +597,7 @@ func (r *UsersRepository) Delete(id uint64) error {
 		WHERE id = ?
 	`
 
-	result, err := r.db.Exec(query, id)
+	result, err := tx.Exec(query, id)
 	if err != nil {
 		return err
 	}
@@ -396,6 +609,10 @@ func (r *UsersRepository) Delete(id uint64) error {
 
 	if rowsAffected == 0 {
 		return fmt.Errorf("nenhum user encontrado com id %d", id)
+	}
+
+	if err = tx.Commit(); err != nil {
+		return err
 	}
 
 	return nil
@@ -414,9 +631,14 @@ func (r *UsersRepository) FetchAllUsers(nome string) ([]models.User, error) {
 			email,
 			cpf,
 			rg,
+			cpf_protegido,
+			rg_protegido,
 			telefone,
 			ativo,
 			nascimento,
+			lgpd_aceito,
+			lgpd_aceito_em,
+			lgpd_finalidade,
 			created_at,
 			updated_at
 		FROM treehousedb.usuarios
@@ -526,9 +748,14 @@ func (r *UsersRepository) FetchProfessors(nome string) ([]models.User, error) {
 			u.email,
 			u.cpf,
 			u.rg,
+			u.cpf_protegido,
+			u.rg_protegido,
 			u.telefone,
 			u.ativo,
 			u.nascimento,
+			u.lgpd_aceito,
+			u.lgpd_aceito_em,
+			u.lgpd_finalidade,
 			u.created_at,
 			u.updated_at
 		FROM treehousedb.usuarios u
@@ -584,9 +811,14 @@ func (r *UsersRepository) ReturnAllProfessors(nome string) ([]models.User, error
 			u.email,
 			u.cpf,
 			u.rg,
+			u.cpf_protegido,
+			u.rg_protegido,
 			u.telefone,
 			u.ativo,
 			u.nascimento,
+			u.lgpd_aceito,
+			u.lgpd_aceito_em,
+			u.lgpd_finalidade,
 			u.created_at,
 			u.updated_at
 		FROM treehousedb.usuarios u
